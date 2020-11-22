@@ -77,7 +77,7 @@ class Trainer:
                         valid_results = self._validate(model, valid_dl)
                         log_postfix.update(valid_results)
 
-                    # dist.barrier()
+                    dist.barrier()
 
                 optimizer.zero_grad()
                 with autocast():
