@@ -86,7 +86,7 @@ class Trainer:
                 scaler.update()
 
                 dist.all_reduce(model_output.loss)
-                log_postfix.update({'loss/Train': model_output.loss / self._world_size})
+                log_postfix.update({'loss/Train': (model_output.loss / self._world_size).item()})
                 if rank == 0:
                     train_dl.set_postfix(log_postfix)
 
@@ -123,7 +123,7 @@ class Trainer:
         model.eval()
 
         valid_results = defaultdict(lambda: 0)
-        n_samples = 0
+
         for model_input in valid_dl:
             with autocast():
                 model_output = model(model_input)
@@ -132,9 +132,7 @@ class Trainer:
             valid_results['ul_loss/Valid'] += model_output.ul_loss
             valid_results['loss/Valid'] += model_output.loss
 
-            n_samples += len(model_input.token_ids)
-
-        valid_results = {k: v / n_samples for k, v in valid_results.items()}
+        valid_results = {k: (v / len(valid_dl)).item() for k, v in valid_results.items()}
 
         if was_training:
             model.train()
