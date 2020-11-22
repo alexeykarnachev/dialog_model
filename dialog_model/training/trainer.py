@@ -61,7 +61,9 @@ def train(
             model_output.loss.backward()
             optimizer.step()
 
-            if rank == 0:
-                _logger.info(f'Epoch: {i_epoch}, Step: {i_epoch_step}')
+            print(f'Epoch: {i_epoch}, Step: {i_epoch_step}')
 
     dist.destroy_process_group()
+
+
+
