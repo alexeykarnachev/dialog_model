@@ -69,6 +69,7 @@ class Trainer:
         scaler = GradScaler()
         for i_epoch in epochs_iter:
             for i_step, model_input in enumerate(train_dl):
+                model.train()
 
                 if i_step and i_step % self._validate_each_n_steps == 0:
                     if rank == 0:
@@ -118,7 +119,6 @@ class Trainer:
 
     @torch.no_grad()
     def _validate(self, model: DialogModel, valid_dl):
-        was_training = model.training
         model.eval()
 
         valid_results = defaultdict(lambda: 0)
@@ -132,8 +132,5 @@ class Trainer:
             valid_results['loss/Valid'] += model_output.loss
 
         valid_results = {k: (v / len(valid_dl)).item() for k, v in valid_results.items()}
-
-        if was_training:
-            model.train()
 
         return valid_results
