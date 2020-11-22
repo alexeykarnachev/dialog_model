@@ -4,6 +4,7 @@ from functools import partial
 import torch
 import torch.multiprocessing as mp
 
+from dialog_model.modelling.model_io import get_pretrained_gpt2_lm_head
 from dialog_model.training.trainer import train
 
 
@@ -24,6 +25,7 @@ def _parse_args():
 
 def main():
     args = _parse_args()
+    get_pretrained_gpt2_lm_head(args.gpt2_name_or_path)
 
     world_size = torch.cuda.device_count()
 
