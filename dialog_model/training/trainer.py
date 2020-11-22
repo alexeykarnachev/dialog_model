@@ -35,7 +35,7 @@ def train(
 
     tokenizer = load_tokenizer(dataset_dir=train_dataset_dir)
     gpt2 = get_pretrained_gpt2_lm_head(gpt2_name_or_path)
-    model = DialogModel(gpt2_lm_head=gpt2, unlikelihood_alpha=unlikelihood_alpha)
+    model = DialogModel(gpt2_lm_head=gpt2, unlikelihood_alpha=unlikelihood_alpha).to(rank)
     model = DistributedDataParallel(model, device_ids=[rank])
 
     _get_dataloader = partial(
