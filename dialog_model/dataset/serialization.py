@@ -76,7 +76,7 @@ def build_dataset(
     _write_tokenizer_params(out_dir, tokenizer_params=tokenizer_params)
 
 
-def read_tokenizer(dataset_dir) -> DialogsTokenizer:
+def load_tokenizer(dataset_dir) -> DialogsTokenizer:
     dataset_dir = Path(dataset_dir)
     with open(dataset_dir / _TOKENIZER_PARAMS_FILE_NAME) as file:
         tokenizer_params = json.load(file)

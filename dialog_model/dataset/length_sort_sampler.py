@@ -12,7 +12,7 @@ class LengthSortSampler(Sampler):
             lengths,
             sort_chunk_size,
             samples_offset=0,
-            shuffle_with_seed=42,
+            data_shuffle_seed=42,
             is_distributed=True
     ):
         super().__init__(None)
@@ -26,7 +26,7 @@ class LengthSortSampler(Sampler):
         inds = np.argsort(lengths)
         inds_chunks = list(chunked(inds, sort_chunk_size * self._world_size))
         largest_chunk = inds_chunks.pop()
-        np.random.RandomState(seed=shuffle_with_seed).shuffle(inds_chunks)
+        np.random.RandomState(seed=data_shuffle_seed).shuffle(inds_chunks)
         self._inds = list(chain(largest_chunk, *inds_chunks))
 
     def __iter__(self):

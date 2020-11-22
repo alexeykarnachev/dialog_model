@@ -17,6 +17,10 @@ class SerializedDataset(Dataset):
 
         self._offsets, self._lengths, self._dtype = read_index(dataset_dir)
 
+    @property
+    def lengths(self):
+        return self._lengths
+
     def __len__(self):
         return len(self._lengths)
 
@@ -30,31 +34,33 @@ class SerializedDataset(Dataset):
 
         return token_ids
 
-    def get_dataloader(
-            self,
-            batch_size,
-            num_workers,
-            sort_chunk_size,
-            samples_offset,
-            shuffle_with_seed,
-            is_distributed,
-            pad_token_id,
-            end_of_prefix_token_id
-    ):
-        sampler = LengthSortSampler(
-            lengths=self._lengths,
-            sort_chunk_size=sort_chunk_size,
-            samples_offset=samples_offset,
-            shuffle_with_seed=shuffle_with_seed,
-            is_distributed=is_distributed
-        )
 
-        collate = Collate(pad_token_id=pad_token_id, end_of_prefix_token_id=end_of_prefix_token_id)
+def get_dataloader(
+        dataset_dir,
+        batch_size,
+        num_workers,
+        sort_chunk_size,
+        samples_offset,
+        data_shuffle_seed,
+        is_distributed,
+        pad_token_id,
+        end_of_prefix_token_id):
+    dataset = SerializedDataset(dataset_dir)
 
-        dataloader = DataLoader(
-            dataset=self, batch_size=batch_size, sampler=sampler, num_workers=num_workers, collate_fn=collate)
+    sampler = LengthSortSampler(
+        lengths=dataset.lengths,
+        sort_chunk_size=sort_chunk_size,
+        samples_offset=samples_offset,
+        data_shuffle_seed=data_shuffle_seed,
+        is_distributed=is_distributed
+    )
 
-        return dataloader
+    collate = Collate(pad_token_id=pad_token_id, end_of_prefix_token_id=end_of_prefix_token_id)
+
+    dataloader = DataLoader(
+        dataset=dataset, batch_size=batch_size, sampler=sampler, num_workers=num_workers, collate_fn=collate)
+
+    return dataloader
 
 
 class Collate:
