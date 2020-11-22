@@ -63,9 +63,9 @@ class Trainer:
         epochs_iter = range(self._n_epochs)
 
         if rank == 0:
-            epochs_iter = tqdm.tqdm(epochs_iter, desc='Epoch', total=len(epochs_iter), position=0)
-            train_dl = tqdm.tqdm(train_dl, desc='Train step', total=len(train_dl), position=1)
-            valid_dl = tqdm.tqdm(valid_dl, desc='Valid step', total=len(valid_dl), position=2)
+            epochs_iter = tqdm.tqdm(epochs_iter, desc='Epoch', total=len(epochs_iter))
+            train_dl = tqdm.tqdm(train_dl, desc='Train step', total=len(train_dl))
+            valid_dl = tqdm.tqdm(valid_dl, desc='Valid step', total=len(valid_dl))
 
         log_postfix = {}
         scaler = GradScaler()
