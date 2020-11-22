@@ -127,10 +127,14 @@ class Trainer:
 
         valid_results = defaultdict(lambda: 0)
         n_samples = 0
+        print('3' * 20)
         for model_input in valid_dl:
+            print('4' * 20)
             with autocast():
+                print('5' * 20)
                 model_output = model(model_input)
-                print('3' * 20)
+                print('6' * 20)
+
             valid_results['lm_loss/Valid'] += model_output.lm_loss
             valid_results['ul_loss/Valid'] += model_output.ul_loss
             valid_results['loss/Valid'] += model_output.loss
