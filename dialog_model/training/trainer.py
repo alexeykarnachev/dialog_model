@@ -64,7 +64,6 @@ class Trainer:
 
         if rank == 0:
             train_dl = tqdm.tqdm(train_dl, desc='Train step', total=len(train_dl), position=1)
-            valid_dl = tqdm.tqdm(valid_dl, desc='Valid step', total=len(valid_dl), position=2)
 
         log_postfix = {'Epoch': 0}
         scaler = GradScaler()
@@ -123,7 +122,7 @@ class Trainer:
         model.eval()
 
         valid_results = defaultdict(lambda: 0)
-
+        valid_dl = tqdm.tqdm(valid_dl, desc='Valid step', total=len(valid_dl), position=2)
         for model_input in valid_dl:
             with autocast():
                 model_output = model(model_input)
