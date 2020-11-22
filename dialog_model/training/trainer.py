@@ -54,11 +54,14 @@ def train(
     valid_dataloader = _get_dataloader(dataset_dir=valid_dataset_dir)
     optimizer = AdamW(params=model.parameters(), lr=learning_rate)
 
-    for i_epoch in tqdm.trange(n_epochs, desc='Epoch', position=0):
-        for i_epoch_step, model_input in tqdm.tqdm(enumerate(train_dataloader), desc='Steps', position=1):
+    for i_epoch in range(n_epochs):
+        for i_epoch_step, model_input in enumerate(train_dataloader):
             optimizer.zero_grad()
             model_output = model(model_input)
             model_output.loss.backward()
             optimizer.step()
+
+            if rank == 0:
+                _logger.info(f'Epoch: {i_epoch}, Step: {i_epoch_step}')
 
     dist.destroy_process_group()
