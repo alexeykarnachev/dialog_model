@@ -73,7 +73,11 @@ class Trainer:
             for i_step, model_input in enumerate(train_dl):
 
                 if i_step % self._validate_each_n_steps == 0:
-                    log_postfix.update(self._validate(model, valid_dl)) if rank == 0 else dist.barrier()
+                    if rank == 0:
+                        valid_results = self._validate(model, valid_dl)
+                        log_postfix.update(valid_results)
+
+                    dist.barrier()
 
                 optimizer.zero_grad()
                 with autocast():
