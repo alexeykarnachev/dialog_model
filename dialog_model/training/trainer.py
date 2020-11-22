@@ -63,11 +63,10 @@ class Trainer:
         epochs_iter = range(self._n_epochs)
 
         if rank == 0:
-            epochs_iter = tqdm.tqdm(epochs_iter, desc='Epoch', total=len(epochs_iter))
-            train_dl = tqdm.tqdm(train_dl, desc='Train step', total=len(train_dl))
-            valid_dl = tqdm.tqdm(valid_dl, desc='Valid step', total=len(valid_dl))
+            train_dl = tqdm.tqdm(train_dl, desc='Train step', total=len(train_dl), position=1)
+            valid_dl = tqdm.tqdm(valid_dl, desc='Valid step', total=len(valid_dl), position=2)
 
-        log_postfix = {}
+        log_postfix = {'Epoch': 0}
         scaler = GradScaler()
         for i_epoch in epochs_iter:
             for i_step, model_input in enumerate(train_dl):
@@ -86,7 +85,8 @@ class Trainer:
                 scaler.update()
 
                 dist.all_reduce(model_output.loss)
-                log_postfix.update({'loss/Train': (model_output.loss / self._world_size).item()})
+                loss_to_log = (model_output.loss / self._world_size).item()
+                log_postfix.update({'loss/Train': loss_to_log, 'Epoch': i_epoch})
                 if rank == 0:
                     train_dl.set_postfix(log_postfix)
 
