@@ -4,6 +4,7 @@ from functools import partial
 
 import torch.distributed as dist
 import tqdm
+from torch.cuda.amp import autocast, GradScaler
 from torch.nn.parallel import DistributedDataParallel
 from transformers import AdamW
 
@@ -53,15 +54,20 @@ def train(
     train_dataloader = _get_dataloader(dataset_dir=train_dataset_dir)
     valid_dataloader = _get_dataloader(dataset_dir=valid_dataset_dir)
     optimizer = AdamW(params=model.parameters(), lr=learning_rate)
+    scaler = GradScaler()
 
     for i_epoch in range(n_epochs):
         for i_epoch_step, model_input in enumerate(train_dataloader):
             optimizer.zero_grad()
-            model_output = model(model_input)
-            model_output.loss.backward()
-            optimizer.step()
+            with autocast():
+                model_output = model(model_input)
 
-            print(f'Epoch: {i_epoch}, Step: {i_epoch_step}')
+            scaler.scale(model_output.loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+
+            if rank == 0:
+                print(f'Epoch: {i_epoch}, Step: {i_epoch_step}')
 
     dist.destroy_process_group()
 
