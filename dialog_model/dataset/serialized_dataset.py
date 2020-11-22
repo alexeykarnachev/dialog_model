@@ -11,9 +11,9 @@ from dialog_model.dataset.serialization import read_index, open_data_file
 
 class SerializedDataset(Dataset):
     def __init__(self, dataset_dir):
-        dataset_dir = Path(dataset_dir)
+        self._dataset_dir = Path(dataset_dir)
 
-        self._data_file = open_data_file(dataset_dir)
+        self._data_file = None
 
         self._offsets, self._lengths, self._dtype = read_index(dataset_dir)
 
@@ -25,6 +25,8 @@ class SerializedDataset(Dataset):
         return len(self._lengths)
 
     def __getitem__(self, i):
+        self._data_file = self._data_file or open_data_file(self._dataset_dir)
+
         offset = self._offsets[i]
         length = self._lengths[i]
 
