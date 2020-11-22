@@ -126,7 +126,8 @@ class Trainer:
         valid_results = defaultdict(lambda: 0)
         n_samples = 0
         for model_input in valid_dl:
-            model_output = model(model_input)
+            with autocast():
+                model_output = model(model_input)
             valid_results['lm_loss/Valid'] += model_output.lm_loss
             valid_results['ul_loss/Valid'] += model_output.ul_loss
             valid_results['loss/Valid'] += model_output.loss

@@ -23,7 +23,7 @@ class DialogModel(nn.Module):
     def forward(self, model_input: DialogModelInput) -> DialogModelOutput:
         model_input = _cast_model_input(model_input)
         lm_loss, logits, _, _ = self._gpt2_lm_head(
-            input_ids=model_input.token_ids, labels=model_input.lm_labels, past=model_input.past)
+            input_ids=model_input.token_ids, labels=model_input.lm_labels, past_key_values=model_input.past)
 
         loss = lm_loss
         ul_loss = None
@@ -40,7 +40,7 @@ class DialogModel(nn.Module):
         """Performs forward pass without loss calculation."""
 
         model_input = _cast_model_input(model_input)
-        logits, past, hidden = self._gpt2_lm_head(input_ids=model_input.token_ids, past=model_input.past)
+        logits, past, hidden = self._gpt2_lm_head(input_ids=model_input.token_ids, past_key_values=model_input.past)
         output = DialogModelOutput(lm_loss=None, ul_loss=None, loss=None, logits=logits, past=past, hidden=hidden)
 
         return output
