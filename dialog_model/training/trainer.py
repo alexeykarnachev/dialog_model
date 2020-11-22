@@ -120,14 +120,17 @@ class Trainer:
 
     @torch.no_grad()
     def _validate(self, model: DialogModel, valid_dl):
+        print('1'*20)
         was_training = model.training
         model.eval()
+        print('2' * 20)
 
         valid_results = defaultdict(lambda: 0)
         n_samples = 0
         for model_input in valid_dl:
             with autocast():
                 model_output = model(model_input)
+                print('3' * 20)
             valid_results['lm_loss/Valid'] += model_output.lm_loss
             valid_results['ul_loss/Valid'] += model_output.ul_loss
             valid_results['loss/Valid'] += model_output.loss
