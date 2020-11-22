@@ -41,7 +41,7 @@ def train(
     _get_dataloader = partial(
         get_dataloader,
         batch_size=worker_batch_size,
-        num_workers=4,
+        num_workers=1,
         sort_chunk_size=worker_batch_size * 1000,
         samples_offset=0,
         data_shuffle_seed=data_shuffle_seed,

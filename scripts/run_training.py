@@ -1,4 +1,5 @@
 import argparse
+import logging
 from functools import partial
 
 import torch
@@ -6,6 +7,10 @@ import torch.multiprocessing as mp
 
 from dialog_model.modelling.model_io import get_pretrained_gpt2_lm_head
 from dialog_model.training.trainer import train
+
+_logger = logging.getLogger(__name__)
+_logger.setLevel('INFO')
+_logger.addHandler(logging.StreamHandler())
 
 
 def _parse_args():
