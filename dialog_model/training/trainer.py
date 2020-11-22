@@ -44,7 +44,7 @@ class Trainer:
         self._n_epochs = n_epochs
         self._validate_each_n_steps = validate_each_n_steps
 
-        self._world_size = dist.get_world_size()
+        self._world_size = torch.cuda.device_count()
         self._tokenizer = load_tokenizer(dataset_dir=self._train_dataset_dir)
 
     def run(self):
