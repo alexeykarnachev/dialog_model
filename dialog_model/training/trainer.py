@@ -32,7 +32,7 @@ def train(
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355'
 
-    dist.init_process_group("gloo", rank=rank, world_size=world_size)
+    dist.init_process_group("mpi", rank=rank, world_size=world_size)
 
     tokenizer = load_tokenizer(dataset_dir=train_dataset_dir)
     gpt2 = get_pretrained_gpt2_lm_head(gpt2_name_or_path)
