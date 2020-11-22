@@ -1,4 +1,5 @@
 import logging
+import os
 from functools import partial
 
 import torch.distributed as dist
@@ -27,6 +28,9 @@ def train(
         n_epochs
 ):
     _logger.info(f'Running ddp training on rank: {rank}.')
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+
     dist.init_process_group("gloo", rank=rank, world_size=world_size)
 
     tokenizer = load_tokenizer(dataset_dir=train_dataset_dir)
