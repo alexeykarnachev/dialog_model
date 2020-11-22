@@ -72,12 +72,12 @@ class Trainer:
         for i_epoch in epochs_iter:
             for i_step, model_input in enumerate(train_dl):
 
-                # if i_step % self._validate_each_n_steps == 0:
-                #     if rank == 0:
-                #         valid_results = self._validate(model, valid_dl)
-                #         log_postfix.update(valid_results)
-                #
-                #     dist.barrier()
+                if i_step and i_step % self._validate_each_n_steps == 0:
+                    if rank == 0:
+                        valid_results = self._validate(model, valid_dl)
+                        log_postfix.update(valid_results)
+
+                    dist.barrier()
 
                 optimizer.zero_grad()
                 with autocast():
