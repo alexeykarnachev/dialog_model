@@ -62,6 +62,11 @@ class Trainer:
         optimizer = AdamW(params=model.parameters(), lr=self._learning_rate)
         epochs_iter = range(self._n_epochs)
 
+        if rank == 0:
+            epochs_iter = tqdm.tqdm(epochs_iter, desc='Epoch', total=len(epochs_iter), position=0, leave=False)
+            train_dl = tqdm.tqdm(train_dl, desc='Train step', total=len(train_dl), position=1, leave=False)
+            valid_dl = tqdm.tqdm(valid_dl, desc='Valid step', total=len(valid_dl), position=2, leave=False)
+
         log_postfix = {}
         scaler = GradScaler()
         for i_epoch in epochs_iter:
@@ -72,7 +77,7 @@ class Trainer:
                         valid_results = self._validate(model, valid_dl)
                         log_postfix.update(valid_results)
 
-                    dist.barrier()
+                    dist.barrier(async_op=True)
 
                 optimizer.zero_grad()
                 with autocast():
@@ -81,8 +86,6 @@ class Trainer:
                 scaler.scale(model_output.loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
-
-                _logger.info(f'Epoch: {i_epoch}, Step: {i_step}')
 
                 # if rank == 0:
                 #     log_postfix.update({'loss/Train': dist.all_reduce(model_output.loss) / self._world_size})
@@ -117,21 +120,26 @@ class Trainer:
 
     @torch.no_grad()
     def _validate(self, model: DialogModel, valid_dl):
+        print('1'*20)
         was_training = model.training
         model.eval()
+        print('2' * 20)
 
         valid_results = defaultdict(lambda: 0)
         n_samples = 0
+        print('3' * 20)
         for model_input in valid_dl:
+            print('4' * 20)
             with autocast():
+                print('5' * 20)
                 model_output = model(model_input)
+                print('6' * 20)
 
             valid_results['lm_loss/Valid'] += model_output.lm_loss
             valid_results['ul_loss/Valid'] += model_output.ul_loss
             valid_results['loss/Valid'] += model_output.loss
 
             n_samples += len(model_output.token_ids)
-            print(1)
 
         valid_results = {k: v / n_samples for k, v in valid_results.items()}
 

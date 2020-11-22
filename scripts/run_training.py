@@ -1,10 +1,7 @@
 import argparse
-import logging
 
 from dialog_model.log_config import prepare_logging
 from dialog_model.training.trainer import Trainer
-
-_logger = logging.getLogger(__name__)
 
 
 def _parse_args():
