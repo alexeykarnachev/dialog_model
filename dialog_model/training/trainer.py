@@ -85,7 +85,8 @@ class Trainer:
                 scaler.step(optimizer)
                 scaler.update()
 
-                log_postfix.update({'loss/Train': dist.all_reduce(model_output.loss) / self._world_size})
+                dist.all_reduce(model_output.loss)
+                log_postfix.update({'loss/Train': model_output.loss / self._world_size})
                 if rank == 0:
                     train_dl.set_postfix(log_postfix)
 
