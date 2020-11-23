@@ -91,6 +91,7 @@ class Trainer:
                 self._samples_seen += len(model_input.token_ids) * self._world_size
 
                 if rank == 0:
+                    self._train_dl.set_postfix({'loss': train_losses['loss/train']})
                     self._write_tb_logs(train_losses)
                     self._write_tb_logs({'learning-rate': self._optimizer.param_groups[0]['lr']})
                     self._write_tb_logs({'epoch': i_epoch})
