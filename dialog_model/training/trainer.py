@@ -115,9 +115,9 @@ class Trainer:
         dist.all_reduce(model_output.loss)
 
         losses = {
-            'lm_loss/train': (model_output.lm_loss / self._world_size).item(),
-            'ul_loss/train': (model_output.ul_loss / self._world_size).item(),
-            'loss/train': (model_output.loss / self._world_size).item()
+            'lm_loss/train': (model_output.lm_loss / 4).item(),
+            'ul_loss/train': (model_output.ul_loss / 4).item(),
+            'loss/train': (model_output.loss / 4).item()
         }
 
         return losses
