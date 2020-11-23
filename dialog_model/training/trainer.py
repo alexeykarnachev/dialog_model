@@ -67,8 +67,8 @@ class Trainer:
         mp.spawn(self._train, nprocs=self._world_size, join=True)
 
     def _train(self, rank):
-        _logger.info(f'Running ddp training on rank: {self._rank}.')
-        self._setup_ddp(self._rank)
+        _logger.info(f'Running ddp training on rank: {rank}.')
+        self._setup_ddp(rank)
         self._rank = rank
         self._scaler = GradScaler()
         self._model = self._get_model(self._rank)
