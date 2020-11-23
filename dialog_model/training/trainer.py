@@ -107,18 +107,14 @@ class Trainer:
         with autocast():
             model_output = self._model(model_input)
 
-        # self._scaler.scale(model_output.loss).backward()
-        # self._scaler.step(self._optimizer)
-        # self._scaler.update()
-
-        dist.all_reduce(model_output.lm_loss)
-        dist.all_reduce(model_output.ul_loss)
-        dist.all_reduce(model_output.loss)
+        self._scaler.scale(model_output.loss).backward()
+        self._scaler.step(self._optimizer)
+        self._scaler.update()
 
         losses = {
-            'lm_loss/train': (model_output.lm_loss / self._world_size).item(),
-            'ul_loss/train': (model_output.ul_loss / self._world_size).item(),
-            'loss/train': (model_output.loss / self._world_size).item()
+            'lm_loss/train': model_output.lm_loss.item(),
+            'ul_loss/train': model_output.ul_loss.item(),
+            'loss/train': model_output.loss.item()
         }
 
         return losses
