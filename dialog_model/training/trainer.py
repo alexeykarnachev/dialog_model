@@ -59,8 +59,6 @@ class Trainer:
         self._valid_dl = None
         self._samples_seen = None
 
-        self._log_postfix = {}
-
     def run(self):
         get_pretrained_gpt2_lm_head(self._gpt2_name_or_path)
         load_tokenizer(self._train_dataset_dir)
@@ -76,35 +74,33 @@ class Trainer:
         self._train_dl = self._get_dataloader(is_train=True, samples_offset=0)
         self._valid_dl = self._get_dataloader(is_train=False, samples_offset=0)
         self._samples_seen = 0
-        writer = SummaryWriter(self._experiment_dir / 'tb_logs')
+        self._writer = SummaryWriter(self._experiment_dir / 'tb_logs')
 
         if self._rank == 0:
             self._train_dl = tqdm.tqdm(self._train_dl, desc='Train step', total=len(self._train_dl), position=1)
 
-        valid_losses = {}
         for i_epoch in range(self._n_epochs):
-            self._log_postfix['epoch'] = i_epoch
+            self._train_dl.set_postfix({'epoch': i_epoch})
 
             for i_step, model_input in enumerate(self._train_dl):
                 self._model.train()
 
                 if self._rank == 0 and i_step and i_step % self._validate_each_n_steps == 0:
                     valid_losses = self._validate(self._model, self._valid_dl)
+                    self._write_tb_logs(valid_losses)
 
                 train_losses = self._train_step(model_input)
                 self._samples_seen += len(model_input.token_ids) * self._world_size
 
-                self._log_postfix.update(train_losses)
-                self._log_postfix.update(valid_losses)
-                self._log_postfix['learning-rate'] = self._optimizer.param_groups[0]['lr']
-
                 if rank == 0:
-                    self._train_dl.set_postfix(self._log_postfix)
-
-                    for tag, val in self._log_postfix.items():
-                        writer.add_scalar(tag=tag, scalar_value=val, global_step=self._samples_seen)
+                    self._write_tb_logs(train_losses)
+                    self._write_tb_logs({'learning-rate': self._optimizer.param_groups[0]['lr']})
 
         dist.destroy_process_group()
+
+    def _write_tb_logs(self, values_dict):
+        for tag, val in values_dict.items():
+            self._writer.add_scalar(tag=tag, scalar_value=val, global_step=self._samples_seen)
 
     def _train_step(self, model_input):
         self._optimizer.zero_grad()
@@ -120,7 +116,7 @@ class Trainer:
             'ul_loss/train': model_output.ul_loss,
             'loss/train': model_output.loss
         }
-        [dist.all_reduce(loss) for loss in losses.values()]
+        [dist.all_reduce(losses[name]) for name in losses]
         losses = {name: (loss / self._world_size).item() for name, loss in losses.items()}
 
         return losses
