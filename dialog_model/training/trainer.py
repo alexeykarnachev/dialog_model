@@ -74,14 +74,12 @@ class Trainer:
         self._train_dl = self._get_dataloader(is_train=True, samples_offset=0)
         self._valid_dl = self._get_dataloader(is_train=False, samples_offset=0)
         self._samples_seen = 0
-        self._writer = SummaryWriter(self._experiment_dir / 'tb_logs')
 
         if self._rank == 0:
+            self._writer = SummaryWriter(self._experiment_dir / 'tb_logs')
             self._train_dl = tqdm.tqdm(self._train_dl, desc='Train step', total=len(self._train_dl), position=1)
 
         for i_epoch in range(self._n_epochs):
-            self._train_dl.set_postfix({'epoch': i_epoch})
-
             for i_step, model_input in enumerate(self._train_dl):
                 self._model.train()
 
@@ -95,6 +93,7 @@ class Trainer:
                 if rank == 0:
                     self._write_tb_logs(train_losses)
                     self._write_tb_logs({'learning-rate': self._optimizer.param_groups[0]['lr']})
+                    self._write_tb_logs({'epoch': i_epoch})
 
         dist.destroy_process_group()
 
