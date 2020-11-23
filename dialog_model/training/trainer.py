@@ -110,13 +110,15 @@ class Trainer:
         self._scaler.step(self._optimizer)
         self._scaler.update()
 
+        dist.all_reduce(model_output.lm_loss)
+        dist.all_reduce(model_output.ul_loss)
+        dist.all_reduce(model_output.loss)
+
         losses = {
-            'lm_loss/train': model_output.lm_loss,
-            'ul_loss/train': model_output.ul_loss,
-            'loss/train': model_output.loss
+            'lm_loss/train': (model_output.lm_loss / self._world_size).item(),
+            'ul_loss/train': (model_output.ul_loss / self._world_size).item(),
+            'loss/train': (model_output.loss / self._world_size).item()
         }
-        [dist.all_reduce(losses[name]) for name in losses]
-        losses = {name: (loss / self._world_size).item() for name, loss in losses.items()}
 
         return losses
 
