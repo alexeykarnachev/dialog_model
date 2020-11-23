@@ -1,7 +1,14 @@
 import argparse
+import hashlib
+import json
+from pathlib import Path
 
 from dialog_model.log_config import prepare_logging
 from dialog_model.training.trainer import Trainer
+from dialog_model.utils import get_file_md5_checksum
+
+_HASH_ARGS = (
+    'gpt2_name_or_path', 'unlikelihood_alpha', 'worker_batch_size', 'data_shuffle_seed', 'learning_rate', 'n_epochs')
 
 
 def _parse_args():
@@ -23,8 +30,13 @@ def _parse_args():
 
 def main():
     args = _parse_args()
-    prepare_logging(args.experiments_root_dir)
+    experiment_hash = _calc_experiment_hash(args)
+    experiment_dir = Path(args.experiments_root_dir) / experiment_hash
+    experiment_dir.mkdir(exist_ok=False, parents=True)
+    prepare_logging(experiment_dir / 'logs')
+
     trainer = Trainer(
+        experiment_dir=experiment_dir,
         train_dataset_dir=args.train_dataset_dir,
         valid_dataset_dir=args.valid_dataset_dir,
         gpt2_name_or_path=args.gpt2_name_or_path,
@@ -37,6 +49,20 @@ def main():
     )
 
     trainer.run()
+
+
+def _calc_experiment_hash(args):
+    args_dict = vars(args)
+    hash_values = []
+    for hash_arg in _HASH_ARGS:
+        hash_values.append(args_dict[hash_arg])
+
+    for data_dir in (args.train_dataset_dir, args.valid_dataset_dir):
+        for file_name in ('data.bin', 'data.idx'):
+            file_path = Path(data_dir) / file_name
+            hash_values.append(get_file_md5_checksum(file_path))
+
+    return hashlib.md5(json.dumps(hash_values).encode()).hexdigest()[:8]
 
 
 if __name__ == '__main__':

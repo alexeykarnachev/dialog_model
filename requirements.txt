@@ -3,3 +3,4 @@ more_itertools==8.5.0
 treelib==1.6.1
 transformers==3.5.1
 torch==1.7.0
+tensorboard==2.4.0

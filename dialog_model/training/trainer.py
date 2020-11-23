@@ -1,6 +1,7 @@
 import logging
 import os
 from collections import defaultdict
+from pathlib import Path
 
 import torch
 import torch.distributed as dist
@@ -8,6 +9,7 @@ import torch.multiprocessing as mp
 import tqdm
 from torch.cuda.amp import autocast, GradScaler
 from torch.nn.parallel import DistributedDataParallel
+from torch.utils.tensorboard import SummaryWriter
 from transformers import AdamW
 
 from dialog_model.dataset.serialization import load_tokenizer
@@ -24,6 +26,7 @@ class Trainer:
 
     def __init__(
             self,
+            experiment_dir,
             train_dataset_dir,
             valid_dataset_dir,
             gpt2_name_or_path,
@@ -34,6 +37,7 @@ class Trainer:
             n_epochs,
             validate_each_n_steps
     ):
+        self._experiment_dir = Path(experiment_dir)
         self._train_dataset_dir = train_dataset_dir
         self._valid_dataset_dir = valid_dataset_dir
         self._gpt2_name_or_path = gpt2_name_or_path
@@ -47,50 +51,79 @@ class Trainer:
         self._world_size = torch.cuda.device_count()
         self._tokenizer = load_tokenizer(dataset_dir=self._train_dataset_dir)
 
+        self._optimizer = None
+        self._scaler = None
+        self._rank = None
+        self._model = None
+        self._train_dl = None
+        self._valid_dl = None
+        self._samples_seen = None
+
+        self._log_postfix = {}
+
     def run(self):
         get_pretrained_gpt2_lm_head(self._gpt2_name_or_path)
         load_tokenizer(self._train_dataset_dir)
         mp.spawn(self._train, nprocs=self._world_size, join=True)
 
     def _train(self, rank):
-        _logger.info(f'Running ddp training on rank: {rank}.')
-        self._setup_ddp(rank)
+        _logger.info(f'Running ddp training on rank: {self._rank}.')
+        self._setup_ddp(self._rank)
+        self._rank = rank
+        self._scaler = GradScaler()
+        self._model = self._get_model(self._rank)
+        self._optimizer = AdamW(params=self._model.parameters(), lr=self._learning_rate)
+        self._train_dl = self._get_dataloader(is_train=True, samples_offset=0)
+        self._valid_dl = self._get_dataloader(is_train=False, samples_offset=0)
+        self._samples_seen = 0
+        writer = SummaryWriter(self._experiment_dir / 'tb_logs')
 
-        model = self._get_model(rank)
-        train_dl = self._get_dataloader(is_train=True, samples_offset=0)
-        valid_dl = self._get_dataloader(is_train=False, samples_offset=0)
-        optimizer = AdamW(params=model.parameters(), lr=self._learning_rate)
-        epochs_iter = range(self._n_epochs)
+        if self._rank == 0:
+            self._train_dl = tqdm.tqdm(self._train_dl, desc='Train step', total=len(self._train_dl), position=1)
 
-        if rank == 0:
-            train_dl = tqdm.tqdm(train_dl, desc='Train step', total=len(train_dl), position=1)
+        valid_losses = {}
+        for i_epoch in range(self._n_epochs):
+            self._log_postfix['epoch'] = i_epoch
 
-        log_postfix = {'Epoch': 0}
-        scaler = GradScaler()
-        for i_epoch in epochs_iter:
-            for i_step, model_input in enumerate(train_dl):
-                model.train()
+            for i_step, model_input in enumerate(self._train_dl):
+                self._model.train()
 
-                if i_step and i_step % self._validate_each_n_steps == 0:
-                    if rank == 0:
-                        valid_results = self._validate(model, valid_dl)
-                        log_postfix.update(valid_results)
+                if self._rank == 0 and i_step and i_step % self._validate_each_n_steps == 0:
+                    valid_losses = self._validate(self._model, self._valid_dl)
 
-                optimizer.zero_grad()
-                with autocast():
-                    model_output = model(model_input)
+                train_losses = self._train_step(model_input)
+                self._samples_seen += len(model_input.token_ids) * self._world_size
 
-                scaler.scale(model_output.loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
+                self._log_postfix.update(train_losses)
+                self._log_postfix.update(valid_losses)
+                self._log_postfix['learning-rate'] = self._optimizer.param_groups[0]['lr']
 
-                dist.all_reduce(model_output.loss)
-                loss_to_log = (model_output.loss / self._world_size).item()
-                log_postfix.update({'loss/Train': loss_to_log, 'Epoch': i_epoch})
                 if rank == 0:
-                    train_dl.set_postfix(log_postfix)
+                    self._train_dl.set_postfix(self._log_postfix)
+
+                    for tag, val in self._log_postfix.items():
+                        writer.add_scalar(tag=tag, scalar_value=val, global_step=self._samples_seen)
 
         dist.destroy_process_group()
+
+    def _train_step(self, model_input):
+        self._optimizer.zero_grad()
+        with autocast():
+            model_output = self._model(model_input)
+
+        self._scaler.scale(model_output.loss).backward()
+        self._scaler.step(self._optimizer)
+        self._scaler.update()
+
+        losses = {
+            'lm_loss/train': model_output.lm_loss,
+            'ul_loss/train': model_output.ul_loss,
+            'loss/train': model_output.loss
+        }
+        [dist.all_reduce(loss) for loss in losses.values()]
+        losses = {name: (loss / self._world_size).item() for name, loss in losses.items()}
+
+        return losses
 
     def _setup_ddp(self, rank):
         os.environ['MASTER_ADDR'] = 'localhost'
@@ -127,9 +160,9 @@ class Trainer:
             with autocast():
                 model_output = model(model_input)
 
-            valid_results['lm_loss/Valid'] += model_output.lm_loss
-            valid_results['ul_loss/Valid'] += model_output.ul_loss
-            valid_results['loss/Valid'] += model_output.loss
+            valid_results['lm_loss/valid'] += model_output.lm_loss
+            valid_results['ul_loss/valid'] += model_output.ul_loss
+            valid_results['loss/valid'] += model_output.loss
 
         valid_results = {k: (v / len(valid_dl)).item() for k, v in valid_results.items()}
 
