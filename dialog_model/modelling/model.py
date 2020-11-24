@@ -3,6 +3,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 from transformers import GPT2LMHeadModel
+from transformers.modeling_outputs import CausalLMOutputWithPastAndCrossAttentions
 
 from dialog_model.data_structures import DialogModelInput, DialogModelOutput
 from dialog_model.modelling.unlikelihood_loss import unlikelihood_loss_fn
@@ -22,16 +23,17 @@ class DialogModel(nn.Module):
 
     def forward(self, model_input: DialogModelInput) -> DialogModelOutput:
         model_input = _cast_model_input(model_input)
-        lm_loss, logits, _, _ = self._gpt2_lm_head(
-            input_ids=model_input.token_ids, labels=model_input.lm_labels, past_key_values=model_input.past)
+        hf_output: CausalLMOutputWithPastAndCrossAttentions = self._gpt2_lm_head(
+            input_ids=model_input.token_ids, labels=model_input.lm_labels, return_dict=True)
 
-        loss = lm_loss
+        loss = hf_output.loss
         ul_loss = None
-        if self._ul_alpha is not None:
-            ul_loss = unlikelihood_loss_fn(logits=logits, target=model_input.lm_labels)
-            loss += self._ul_alpha * ul_loss
+        if self._ul_alpha:
+            ul_loss = unlikelihood_loss_fn(logits=hf_output.logits, target=model_input.lm_labels) * self._ul_alpha
+            loss += ul_loss
 
-        output = DialogModelOutput(lm_loss=lm_loss, ul_loss=ul_loss, loss=loss, logits=logits, past=None, hidden=None)
+        output = DialogModelOutput(
+            lm_loss=hf_output.loss, ul_loss=ul_loss, loss=loss, logits=hf_output.logits, past=None, hidden=None)
 
         return output
 
@@ -40,8 +42,15 @@ class DialogModel(nn.Module):
         """Performs forward pass without loss calculation."""
 
         model_input = _cast_model_input(model_input)
-        logits, past, hidden = self._gpt2_lm_head(input_ids=model_input.token_ids, past_key_values=model_input.past)
-        output = DialogModelOutput(lm_loss=None, ul_loss=None, loss=None, logits=logits, past=past, hidden=hidden)
+        hf_output: CausalLMOutputWithPastAndCrossAttentions = self._gpt2_lm_head(
+            input_ids=model_input.token_ids, past_key_values=model_input.past, return_dict=True)
+        output = DialogModelOutput(
+            lm_loss=None,
+            ul_loss=None,
+            loss=None,
+            logits=hf_output.logits,
+            past=hf_output.past_key_values,
+            hidden=hf_output.hidden_states)
 
         return output
 
