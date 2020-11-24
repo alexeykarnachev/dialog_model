@@ -10,7 +10,7 @@ import tqdm
 from torch.cuda.amp import autocast, GradScaler
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.tensorboard import SummaryWriter
-from transformers import AdamW
+from transformers import AdamW, get_linear_schedule_with_warmup
 
 from dialog_model.dataset.serialization import load_tokenizer
 from dialog_model.dataset.serialized_dataset import get_dataloader
@@ -35,7 +35,8 @@ class Trainer:
             data_shuffle_seed,
             learning_rate,
             n_epochs,
-            validate_each_n_steps
+            validate_each_n_steps,
+            warmup_ratio
     ):
         self._experiment_dir = Path(experiment_dir)
         self._train_dataset_dir = train_dataset_dir
@@ -47,6 +48,7 @@ class Trainer:
         self._learning_rate = learning_rate
         self._n_epochs = n_epochs
         self._validate_each_n_steps = validate_each_n_steps
+        self._warmup_ratio = warmup_ratio
 
         self._world_size = torch.cuda.device_count()
         self._tokenizer = load_tokenizer(dataset_dir=self._train_dataset_dir)
@@ -57,7 +59,7 @@ class Trainer:
         self._model = None
         self._train_dl = None
         self._valid_dl = None
-        self._samples_seen = None
+        self._global_step = None
 
     def run(self):
         get_pretrained_gpt2_with_lm_head(self._gpt2_name_or_path, vocab_size=None)
@@ -73,7 +75,13 @@ class Trainer:
         self._optimizer = AdamW(params=self._model.parameters(), lr=self._learning_rate)
         self._train_dl = self._get_dataloader(is_train=True, samples_offset=0)
         self._valid_dl = self._get_dataloader(is_train=False, samples_offset=0)
-        self._samples_seen = 0
+
+        num_training_steps = len(self._train_dl)
+        num_warmup_steps = self._warmup_ratio * num_training_steps
+        self._scheduler = get_linear_schedule_with_warmup(
+            optimizer=self._optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps)
+
+        self._global_step = 0
 
         if self._rank == 0:
             self._writer = SummaryWriter(self._experiment_dir / 'tb_logs')
@@ -88,19 +96,21 @@ class Trainer:
                     self._write_tb_logs(valid_losses)
 
                 train_losses = self._train_step(model_input)
-                self._samples_seen += len(model_input.token_ids) * self._world_size
+                self._global_step += 1
+                self._scheduler.step()
 
                 if rank == 0:
                     self._train_dl.set_postfix({'loss': train_losses['loss/train']})
                     self._write_tb_logs(train_losses)
                     self._write_tb_logs({'learning-rate': self._optimizer.param_groups[0]['lr']})
+                    self._write_tb_logs({'max_seq_len': model_input.token_ids.size()[1]})
                     self._write_tb_logs({'epoch': i_epoch})
 
         dist.destroy_process_group()
 
     def _write_tb_logs(self, values_dict):
         for tag, val in values_dict.items():
-            self._writer.add_scalar(tag=tag, scalar_value=val, global_step=self._samples_seen)
+            self._writer.add_scalar(tag=tag, scalar_value=val, global_step=self._global_step)
 
     def _train_step(self, model_input):
         self._optimizer.zero_grad()
