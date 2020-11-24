@@ -146,7 +146,7 @@ class Trainer:
             dataset_dir=self._train_dataset_dir if is_train else self._valid_dataset_dir,
             batch_size=self._worker_batch_size,
             num_workers=4,
-            sort_chunk_size=self._worker_batch_size * 1000,
+            sort_chunk_size=self._worker_batch_size * 10,
             samples_offset=samples_offset,
             data_shuffle_seed=self._data_shuffle_seed,
             is_distributed=is_train,
