@@ -27,10 +27,12 @@ class DialogModel(nn.Module):
             input_ids=model_input.token_ids, labels=model_input.lm_labels, return_dict=True)
 
         loss = hf_output.loss
-        ul_loss = None
+
         if self._ul_alpha:
             ul_loss = unlikelihood_loss_fn(logits=hf_output.logits, target=model_input.lm_labels) * self._ul_alpha
             loss += ul_loss
+        else:
+            ul_loss = torch.tensor(0)
 
         output = DialogModelOutput(
             lm_loss=hf_output.loss, ul_loss=ul_loss, loss=loss, logits=hf_output.logits, past=None, hidden=None)
