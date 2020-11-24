@@ -16,8 +16,8 @@ def _resize_embeddings(model, vocab_size: int):
 
     if n_new < 0:
         raise ValueError(
-            "Can't resize embeddings: new vocab size can not be less than the "
-            "old embeddings number (old vocab size).")
+            f"Can't resize embeddings: new vocab size ({vocab_size}) can not be less than the "
+            f"old embeddings number ({old_size}).")
 
     model.resize_token_embeddings(vocab_size)
     idx = vocab_size - n_new
