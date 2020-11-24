@@ -95,9 +95,9 @@ class Trainer:
                     valid_losses = self._validate(self._model, self._valid_dl)
                     self._write_tb_logs(valid_losses)
 
+                self._scheduler.step()
                 train_losses = self._train_step(model_input)
                 self._global_step += 1
-                self._scheduler.step()
 
                 if rank == 0:
                     self._train_dl.set_postfix({'loss': train_losses['loss/train']})
