@@ -15,7 +15,7 @@ from transformers import AdamW
 from dialog_model.dataset.serialization import load_tokenizer
 from dialog_model.dataset.serialized_dataset import get_dataloader
 from dialog_model.modelling.model import DialogModel
-from dialog_model.modelling.model_io import get_pretrained_gpt2_lm_head
+from dialog_model.modelling.model_io import get_pretrained_gpt2_with_lm_head
 
 _logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ class Trainer:
         self._samples_seen = None
 
     def run(self):
-        get_pretrained_gpt2_lm_head(self._gpt2_name_or_path)
+        get_pretrained_gpt2_with_lm_head(self._gpt2_name_or_path, vocab_size=None)
         load_tokenizer(self._train_dataset_dir)
         mp.spawn(self._train, nprocs=self._world_size, join=True)
 
@@ -125,7 +125,7 @@ class Trainer:
         dist.init_process_group("nccl", rank=rank, world_size=self._world_size)
 
     def _get_model(self, rank):
-        gpt2 = get_pretrained_gpt2_lm_head(self._gpt2_name_or_path)
+        gpt2 = get_pretrained_gpt2_with_lm_head(self._gpt2_name_or_path, vocab_size=self._tokenizer.vocab_size)
         model = DialogModel(gpt2_lm_head=gpt2, unlikelihood_alpha=self._unlikelihood_alpha).to(rank)
         model = DistributedDataParallel(model, device_ids=[rank])
 

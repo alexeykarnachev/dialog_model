@@ -46,6 +46,10 @@ class DialogsTokenizer:
     def end_of_prefix_token_id(self):
         return self._end_of_prefix_token_id
 
+    @property
+    def vocab_size(self):
+        return max(self._tokenizer.all_special_ids) + 1
+
     def encode(self, dialogs: Iterable[Dialog], with_subdialogs):
         contexts = list(set(dialog.context for dialog in dialogs))
         tags = list(set(flatten(dialog.tags for dialog in dialogs)))
