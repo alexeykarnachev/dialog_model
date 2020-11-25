@@ -177,7 +177,7 @@ class Trainer:
 
     @torch.no_grad()
     def _generate(self):
-        generator = LanguageGenerator(self._model, self._tokenizer)
+        generator = LanguageGenerator(self._model.module, self._tokenizer)
         dialog = Dialog(
             tags=['Девяностые', '90-e', 'Денди', 'Детство'],
             context='Мы играли в фишки и денди, играли в войнушку. Хорошее было детство.',
