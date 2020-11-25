@@ -78,8 +78,7 @@ class DialogsTokenizer:
 
             for utterances_token_ids_chunk in chunked(utterances_token_ids, n=utterances_n_tokens):
                 token_ids = list(chain(prefix_token_ids, utterances_token_ids_chunk))
-                if append_start_of_utterance_token:
-                    token_ids.append(self._start_of_utterance_token_id)
+                token_ids.append(self._start_of_utterance_token_id)
                 token_ids = np.array(token_ids, dtype=self._dtype)
                 encoded.append(token_ids)
 

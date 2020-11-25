@@ -28,7 +28,7 @@ class LanguageGenerator:
         self._model.eval()
 
         dialogs = [dialog] * num_return_sequences
-        encoded = self._tokenizer.encode(dialogs, with_subdialogs=False, append_start_of_utterance_token=True)
+        encoded = self._tokenizer.encode(dialogs, with_subdialogs=False)
         collate_fn = Collate(
             pad_token_id=self._tokenizer.pad_token_id,
             end_of_prefix_token_id=self._tokenizer.end_of_prefix_token_id
