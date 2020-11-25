@@ -44,7 +44,7 @@ class LanguageGenerator:
         generated_token_ids = torch.zeros(num_return_sequences, max_number_of_generated_tokens, dtype=torch.long)
         generated_token_ids = generated_token_ids.to(self._model.device)
 
-        past_token_ids = model_inp.input_ids.detach().clone()
+        past_token_ids = model_inp.token_ids.detach().clone()
         not_eos_mask = ~(past_token_ids == self._tokenizer.start_of_utterance_token_id).all(0)
         past_token_ids = past_token_ids[:, not_eos_mask]
 
@@ -64,9 +64,9 @@ class LanguageGenerator:
             next_token_ids = _sample_next_token_ids(next_token_logits)
             progress.update(next_token_ids)
             generated_token_ids[:, progress.current_length - 1] = next_token_ids
-            input_ids = next_token_ids.unsqueeze(1)
+            token_ids = next_token_ids.unsqueeze(1)
 
-            model_inp = DialogModelInput(input_ids=input_ids, past=model_output.past, lm_labels=None)
+            model_inp = DialogModelInput(token_ids=token_ids, past=model_output.past, lm_labels=None)
 
         candidates = _decode_candidates(
             tokenizer=self._tokenizer,

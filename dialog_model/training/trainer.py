@@ -94,8 +94,8 @@ class Trainer:
                 self._model.train()
 
                 if self._rank == 0 and i_step % self._validate_each_n_steps == 0:
-                    valid_losses = self._validate()
                     self._generate()
+                    valid_losses = self._validate()
                     self._write_tb_logs(valid_losses)
 
                 self._scheduler.step()
