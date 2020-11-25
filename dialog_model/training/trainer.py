@@ -188,7 +188,7 @@ class Trainer:
             with open(config_file_path) as file:
                 config = json.load(file)
                 generator_params = config['generator_params']
-                dialog_payload = config['dialog']
+                dialog_payload = config['dialog_payload']
         else:
             generator_params = {
                 'max_number_of_generated_tokens': 50,
