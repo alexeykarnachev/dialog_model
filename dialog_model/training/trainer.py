@@ -79,7 +79,7 @@ class Trainer:
         self._train_dl = self._get_dataloader(is_train=True, samples_offset=0)
         self._valid_dl = self._get_dataloader(is_train=False, samples_offset=0)
 
-        num_training_steps = len(self._train_dl)
+        num_training_steps = len(self._train_dl) * self._n_epochs
         num_warmup_steps = self._warmup_ratio * num_training_steps
         self._scheduler = get_linear_schedule_with_warmup(
             optimizer=self._optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps)
