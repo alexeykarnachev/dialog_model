@@ -1,5 +1,7 @@
+import json
 import logging
 import os
+import traceback
 from collections import defaultdict
 from pathlib import Path
 
@@ -177,11 +179,41 @@ class Trainer:
 
     @torch.no_grad()
     def _generate(self):
-        generator = LanguageGenerator(self._model.module, self._tokenizer)
-        dialog = Dialog(
-            tags=['Девяностые', '90-e', 'Денди', 'Детство'],
-            context='Мы играли в фишки и денди, играли в войнушку. Хорошее было детство.',
-            utterances=['Привет, как дела?', 'Нормально, сам как?', 'Я тоже хорошо. Расскажи о себе.']
-        )
-        candidates = generator(dialog=dialog, max_number_of_generated_tokens=50, num_return_sequences=4)
-        raise ValueError(candidates)
+        out_dir = self._experiment_dir / 'generated'
+        out_dir.mkdir(exist_ok=True, parents=False)
+        config_file_path = out_dir / 'config.json'
+        generated_file_path = out_dir / 'generated.jsonl'
+
+        if config_file_path.is_file():
+            with open(config_file_path) as file:
+                config = json.load(file)
+                generator_params = config['generator_params']
+                dialog_payload = config['dialog']
+        else:
+            generator_params = {
+                'max_number_of_generated_tokens': 50,
+                'num_return_sequences': 4,
+                'repetition_penalty': 3,
+                'temperature': 0.73,
+                'top_k': 100,
+                'top_p': 1.0
+            }
+            dialog_payload = {
+                'tags': ['Девяностые', '90-e', 'Денди', 'Детство'],
+                'context': 'Мы играли в фишки и денди, играли в войнушку. Хорошее было детство.',
+                'utterances': ['Привет, как дела?', 'Нормально, сам как?', 'Я тоже хорошо. Расскажи о себе.']
+            }
+
+        try:
+            generator = LanguageGenerator(self._model.module, self._tokenizer)
+            dialog = Dialog(**dialog_payload)
+            candidates = generator(dialog=dialog, **generator_params)
+            payload = {'generator_params': generator_params, 'dialog_payload': dialog_payload, 'candidates': candidates}
+        except:
+            tb = traceback.format_exc()
+            payload = {'exception': tb}
+
+        with open(generated_file_path, 'a') as file:
+            payload = json.dumps(payload, ensure_ascii=False, indent=2)
+            file.write(payload)
+            file.write('\n')
