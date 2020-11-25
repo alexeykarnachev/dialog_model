@@ -21,7 +21,7 @@ from dialog_model.language_generator.generator import LanguageGenerator
 from dialog_model.modelling.model import DialogModel
 from dialog_model.modelling.model_io import get_pretrained_gpt2_with_lm_head
 
-_logger = logging.getLogger(__name__)
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
 
 class Trainer:
@@ -71,7 +71,6 @@ class Trainer:
         mp.spawn(self._train, nprocs=self._world_size, join=True)
 
     def _train(self, rank):
-        _logger.info(f'Running ddp training on rank: {rank}.')
         self._setup_ddp(rank)
         self._rank = rank
         self._scaler = GradScaler()
@@ -177,7 +176,6 @@ class Trainer:
 
         return valid_results
 
-    @torch.no_grad()
     def _generate(self):
         out_dir = self._experiment_dir / 'generated'
         out_dir.mkdir(exist_ok=True, parents=False)
