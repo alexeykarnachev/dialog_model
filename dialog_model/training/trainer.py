@@ -12,8 +12,10 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.tensorboard import SummaryWriter
 from transformers import AdamW, get_linear_schedule_with_warmup
 
+from dialog_model.data_structures import Dialog
 from dialog_model.dataset.serialization import load_tokenizer
 from dialog_model.dataset.serialized_dataset import get_dataloader
+from dialog_model.language_generator.generator import LanguageGenerator
 from dialog_model.modelling.model import DialogModel
 from dialog_model.modelling.model_io import get_pretrained_gpt2_with_lm_head
 
@@ -92,7 +94,8 @@ class Trainer:
                 self._model.train()
 
                 if self._rank == 0 and i_step and i_step % self._validate_each_n_steps == 0:
-                    valid_losses = self._validate(self._model, self._valid_dl)
+                    valid_losses = self._validate()
+                    self._generate()
                     self._write_tb_logs(valid_losses)
 
                 self._scheduler.step()
@@ -155,14 +158,14 @@ class Trainer:
         )
 
     @torch.no_grad()
-    def _validate(self, model: DialogModel, valid_dl):
-        model.eval()
+    def _validate(self):
+        self._model.eval()
 
         valid_results = defaultdict(lambda: 0)
-        valid_dl = tqdm.tqdm(valid_dl, desc='Valid step', total=len(valid_dl), position=2)
+        valid_dl = tqdm.tqdm(self._valid_dl, desc='Valid step', total=len(self._valid_dl), position=2)
         for model_input in valid_dl:
             with autocast():
-                model_output = model(model_input)
+                model_output = self._model(model_input)
 
             valid_results['lm_loss/valid'] += model_output.lm_loss
             valid_results['ul_loss/valid'] += model_output.ul_loss
@@ -171,3 +174,14 @@ class Trainer:
         valid_results = {k: (v / len(valid_dl)).item() for k, v in valid_results.items()}
 
         return valid_results
+
+    @torch.no_grad()
+    def _generate(self):
+        generator = LanguageGenerator(self._model, self._tokenizer)
+        dialog = Dialog(
+            tags=['Девяностые', '90-e', 'Денди', 'Детство'],
+            context='Мы играли в фишки и денди, играли в войнушку. Хорошее было детство.',
+            utterances=['Привет, как дела?', 'Нормально, сам как?', 'Я тоже хорошо. Расскажи о себе.']
+        )
+        candidates = generator(dialog=dialog, max_number_of_generated_tokens=50, num_return_sequences=4)
+        raise ValueError(candidates)

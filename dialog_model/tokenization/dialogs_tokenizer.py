@@ -36,6 +36,7 @@ class DialogsTokenizer:
         self._dtype = np.uint16 if self._tokenizer.vocab_size < 65500 else np.int32
 
         self._end_of_prefix_token_id = self._tokenizer.convert_tokens_to_ids(END_OF_PREFIX)
+        self._start_of_utterance_token_id = self._tokenizer.convert_tokens_to_string(START_OF_UTTERANCE)
         self._pad_token_id = 0
 
     @property
@@ -45,6 +46,10 @@ class DialogsTokenizer:
     @property
     def end_of_prefix_token_id(self):
         return self._end_of_prefix_token_id
+
+    @property
+    def start_of_utterance_token_id(self):
+        return self._start_of_utterance_token_id
 
     @property
     def vocab_size(self):
@@ -77,6 +82,9 @@ class DialogsTokenizer:
                 encoded.append(token_ids)
 
         return encoded
+
+    def decode(self, encoded):
+        return self._tokenizer.batch_decode(encoded)
 
     def _get_text_to_token_ids(self, texts: List[str], bos_token) -> Dict[str, List[int]]:
         texts_with_eos = [bos_token + text for text in texts]
