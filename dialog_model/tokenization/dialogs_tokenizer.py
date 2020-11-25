@@ -36,7 +36,7 @@ class DialogsTokenizer:
         self._dtype = np.uint16 if self._tokenizer.vocab_size < 65500 else np.int32
 
         self._end_of_prefix_token_id = self._tokenizer.convert_tokens_to_ids(END_OF_PREFIX)
-        self._start_of_utterance_token_id = self._tokenizer.convert_tokens_to_string(START_OF_UTTERANCE)
+        self._start_of_utterance_token_id = self._tokenizer.convert_tokens_to_ids(START_OF_UTTERANCE)
         self._pad_token_id = 0
 
     @property
