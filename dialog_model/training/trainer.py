@@ -203,6 +203,10 @@ class Trainer:
                 'context': 'Мы играли в фишки и денди, играли в войнушку. Хорошее было детство.',
                 'utterances': ['Привет, как дела?', 'Нормально, сам как?', 'Я тоже хорошо. Расскажи о себе.']
             }
+            config = {'generator_params': generator_params, 'dialog_payload': dialog_payload}
+
+            with open(config_file_path, 'w') as file:
+                json.dump(config, file, indent=2, ensure_ascii=False)
 
         try:
             generator = LanguageGenerator(self._model.module, self._tokenizer)
