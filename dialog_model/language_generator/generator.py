@@ -47,6 +47,7 @@ class LanguageGenerator:
         past_token_ids = model_input.token_ids.detach().clone()
         not_eos_mask = ~(past_token_ids == self._tokenizer.start_of_utterance_token_id).all(0)
         past_token_ids = past_token_ids[:, not_eos_mask]
+        past_token_ids = past_token_ids.to(self._model.device)
 
         while not progress.finished:
             model_input = DialogModelInput(*[x.to(self._model.device) if x is not None else x for x in model_input])
