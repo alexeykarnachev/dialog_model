@@ -71,7 +71,7 @@ class DialogsTokenizer:
             prefix_token_ids = list(chain(tags_token_ids, context_token_ids, [self.end_of_prefix_token_id]))
             utterances_token_ids = list(flatten(utterance_to_ids[u] for u in dialog.utterances))
 
-            utterances_n_tokens = self._total_max_n_tokens - len(prefix_token_ids)
+            utterances_n_tokens = self._total_max_n_tokens - len(prefix_token_ids) - 1
 
             if not with_subdialogs:
                 utterances_token_ids = utterances_token_ids[-utterances_n_tokens:]
