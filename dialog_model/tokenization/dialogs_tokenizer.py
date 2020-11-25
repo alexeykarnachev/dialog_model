@@ -55,7 +55,7 @@ class DialogsTokenizer:
     def vocab_size(self):
         return max(self._tokenizer.all_special_ids) + 1
 
-    def encode(self, dialogs: Iterable[Dialog], with_subdialogs):
+    def encode(self, dialogs: Iterable[Dialog], with_subdialogs, append_start_of_utterance_token=False):
         contexts = list(set(dialog.context for dialog in dialogs))
         tags = list(set(flatten(dialog.tags for dialog in dialogs)))
         utterances = list(set(flatten(dialog.utterances for dialog in dialogs)))
@@ -78,6 +78,8 @@ class DialogsTokenizer:
 
             for utterances_token_ids_chunk in chunked(utterances_token_ids, n=utterances_n_tokens):
                 token_ids = list(chain(prefix_token_ids, utterances_token_ids_chunk))
+                if append_start_of_utterance_token:
+                    token_ids.append(self._start_of_utterance_token_id)
                 token_ids = np.array(token_ids, dtype=self._dtype)
                 encoded.append(token_ids)
 
