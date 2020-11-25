@@ -49,7 +49,7 @@ class LanguageGenerator:
         past_token_ids = past_token_ids[:, not_eos_mask]
 
         while not progress.finished:
-            [x.to(self._model.device) for x in model_input if x is not None]
+            model_input = DialogModelInput(*[x.to(self._model.device) for x in model_input if x is not None])
             model_output = self._model.infer(model_input=model_input)
             next_token_logits = model_output.logits[:, -1, :]
             past_token_ids = torch.cat(tensors=[past_token_ids, generated_token_ids], dim=1)
