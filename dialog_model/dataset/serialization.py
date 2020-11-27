@@ -130,4 +130,4 @@ def _write_array(file, arr, dtype):
 
 def _iterate_on_token_ids(dialogs: Iterable[Sequence[str]], tokenizer: DialogsTokenizer, tokenization_chunk_size):
     for dialogs_chunk in chunked(dialogs, n=tokenization_chunk_size):
-        yield from tokenizer.encode(dialogs_chunk, with_subdialogs=True)
+        yield from tokenizer.encode(dialogs_chunk, with_subdialogs=True, skip_remaining_subdialogs=True)
