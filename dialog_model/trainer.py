@@ -186,7 +186,6 @@ class Trainer:
                 dialog = config['dialog']
         else:
             generator_params = {
-                'max_number_of_generated_tokens': 50,
                 'num_return_sequences': 4,
                 'repetition_penalty': 3,
                 'temperature': 0.73,
