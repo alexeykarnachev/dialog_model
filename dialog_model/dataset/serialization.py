@@ -1,14 +1,13 @@
 import json
 import struct
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Sequence
 
 import numpy as np
 from more_itertools import chunked
 
-from dialog_model.data_structures import Dialog
 from dialog_model.raw_dialogs.pikabu_dialogs_iterator import PikabuDialogsIterator
-from dialog_model.tokenization.dialogs_tokenizer import DialogsTokenizer
+from dialog_model.dialogs_tokenizer import DialogsTokenizer
 
 _DATA_FILE_NAME = 'data.bin'
 _INDEX_FILE_NAME = 'data.idx'
@@ -53,20 +52,13 @@ def build_dataset(
         out_dir,
         tokenization_chunk_size,
         tokenizer_name_or_path,
-        tags_max_n_tokens,
-        context_max_n_tokens,
-        total_max_n_tokens
+        max_n_tokens
 ):
     out_dir = Path(out_dir)
     out_dir.mkdir(exist_ok=True, parents=True)
 
     dialogs = PikabuDialogsIterator(dialogs_file_path)
-    tokenizer_params = {
-        'tokenizer_name_or_path': tokenizer_name_or_path,
-        'tags_max_n_tokens': tags_max_n_tokens,
-        'context_max_n_tokens': context_max_n_tokens,
-        'total_max_n_tokens': total_max_n_tokens
-    }
+    tokenizer_params = {'tokenizer_name_or_path': tokenizer_name_or_path, 'max_n_tokens': max_n_tokens}
     tokenizer = DialogsTokenizer(**tokenizer_params)
     token_ids_iter = _iterate_on_token_ids(
         dialogs=dialogs, tokenizer=tokenizer, tokenization_chunk_size=tokenization_chunk_size)
@@ -136,6 +128,6 @@ def _write_array(file, arr, dtype):
     file.write(np.array(arr, dtype=dtype))
 
 
-def _iterate_on_token_ids(dialogs: Iterable[Dialog], tokenizer: DialogsTokenizer, tokenization_chunk_size):
+def _iterate_on_token_ids(dialogs: Iterable[Sequence[str]], tokenizer: DialogsTokenizer, tokenization_chunk_size):
     for dialogs_chunk in chunked(dialogs, n=tokenization_chunk_size):
         yield from tokenizer.encode(dialogs_chunk, with_subdialogs=True)

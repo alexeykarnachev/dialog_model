@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional
 
 from dialog_model.raw_dialogs.dialogs_iterator import DialogsIterator
 
@@ -16,9 +16,3 @@ class PikabuDialogsIterator(DialogsIterator):
             return None
 
         return text
-
-    def _get_context_from_line_data(self, line_data) -> str:
-        return (line_data['story']['text'] or '').strip()
-
-    def _get_tags_from_line_data(self, line_data) -> Tuple[str]:
-        return tuple(line_data['story']['tags']) or tuple()

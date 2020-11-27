@@ -1,11 +1,10 @@
 import abc
 import json
-from typing import Optional, Tuple
+from typing import Optional
 
 from tqdm import tqdm
 from treelib import Tree
 
-from dialog_model.data_structures import Dialog
 from dialog_model.utils import iterate_on_parts_by_condition
 
 
@@ -24,10 +23,7 @@ class DialogsIterator(abc.ABC):
                 dialogs = self._iterate_on_dialogs_from_tree(dialog_tree)
                 dialogs = set(tuple(dialog) for dialog in dialogs if len(dialog) >= self._min_n_messages_in_dialog)
 
-                tags = self._get_tags_from_line_data(line_data)
-                context = self._get_context_from_line_data(line_data)
-
-                yield from (Dialog(tags=tags, context=context, utterances=utterances) for utterances in dialogs)
+                yield from dialogs
 
     def _get_dialog_tree(self, line_data):
         tree = Tree()
@@ -55,12 +51,4 @@ class DialogsIterator(abc.ABC):
 
     @abc.abstractmethod
     def _process_comment(self, text) -> Optional[str]:
-        pass
-
-    @abc.abstractmethod
-    def _get_context_from_line_data(self, line_data) -> str:
-        pass
-
-    @abc.abstractmethod
-    def _get_tags_from_line_data(self, line_data) -> Tuple[str]:
         pass

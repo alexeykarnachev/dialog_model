@@ -1,13 +1,15 @@
+from typing import Sequence
+
 import torch
 import torch.nn.functional
 
-from dialog_model.data_structures import Dialog, DialogModelInput
+from dialog_model.data_structures import DialogModelInput
 from dialog_model.dataset.serialized_dataset import Collate
+from dialog_model.dialogs_tokenizer import DialogsTokenizer
 from dialog_model.language_generator.logits_modifiers import IgnoredTokensModifier, RepetitiveTokensModifier, \
     TemperatureModifier, TopKNucleusModifier
 from dialog_model.language_generator.progress import GenerationProgressTracker
 from dialog_model.modelling.model import DialogModel
-from dialog_model.tokenization.dialogs_tokenizer import DialogsTokenizer
 
 
 class LanguageGenerator:
@@ -17,8 +19,7 @@ class LanguageGenerator:
 
     def __call__(
             self,
-            dialog: Dialog,
-            max_number_of_generated_tokens,
+            dialog: Sequence[str],
             num_return_sequences,
             repetition_penalty=3.0,
             temperature=0.73,
@@ -27,28 +28,24 @@ class LanguageGenerator:
     ):
         self._model.eval()
 
-        dialogs = [dialog] * num_return_sequences
-        encoded = self._tokenizer.encode(dialogs, with_subdialogs=False)
-        collate_fn = Collate(
-            pad_token_id=self._tokenizer.pad_token_id,
-            end_of_prefix_token_id=self._tokenizer.end_of_prefix_token_id
-        )
+        encoded_dialog = self._tokenizer.encode([dialog], with_subdialogs=False)[0]
+        max_number_of_generated_tokens = self._tokenizer.max_n_tokens - len(encoded_dialog)
+        encoded = [list(encoded_dialog) for _ in range(num_return_sequences)]
+        collate_fn = Collate(pad_token_id=self._tokenizer.pad_token_id, device=self._model.device)
 
         model_input = collate_fn(encoded)
-        model_input = DialogModelInput(*[x.to(self._model.device) if x is not None else x for x in model_input])
 
         progress = GenerationProgressTracker(
-            eos_token_id=self._tokenizer.start_of_utterance_token_id,
+            eos_token_id=self._tokenizer.end_of_utterance_token_id,
             max_length=max_number_of_generated_tokens
         )
 
-        generated_token_ids = torch.zeros(num_return_sequences, max_number_of_generated_tokens, dtype=torch.long)
-        generated_token_ids = generated_token_ids.to(self._model.device)
+        generated_token_ids = torch.zeros(
+            num_return_sequences, max_number_of_generated_tokens, dtype=torch.long, device=self._model.device)
 
         past_token_ids = model_input.token_ids.detach().clone()
-        not_eos_mask = ~(past_token_ids == self._tokenizer.start_of_utterance_token_id).all(0)
+        not_eos_mask = ~(past_token_ids == self._tokenizer.end_of_utterance_token_id).all(0)
         past_token_ids = past_token_ids[:, not_eos_mask]
-        past_token_ids = past_token_ids.to(self._model.device)
 
         while not progress.finished:
             model_output = self._model.infer(model_input=model_input)

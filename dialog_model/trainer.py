@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import traceback
 from collections import defaultdict
@@ -14,7 +13,6 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.tensorboard import SummaryWriter
 from transformers import AdamW, get_linear_schedule_with_warmup
 
-from dialog_model.data_structures import Dialog
 from dialog_model.dataset.serialization import load_tokenizer
 from dialog_model.dataset.serialized_dataset import get_dataloader
 from dialog_model.language_generator.generator import LanguageGenerator
@@ -154,8 +152,7 @@ class Trainer:
             samples_offset=samples_offset,
             data_shuffle_seed=self._data_shuffle_seed,
             is_distributed=is_train,
-            pad_token_id=self._tokenizer.pad_token_id,
-            end_of_prefix_token_id=self._tokenizer.end_of_prefix_token_id
+            pad_token_id=self._tokenizer.pad_token_id
         )
 
     @torch.no_grad()
@@ -186,7 +183,7 @@ class Trainer:
             with open(config_file_path) as file:
                 config = json.load(file)
                 generator_params = config['generator_params']
-                dialog_payload = config['dialog_payload']
+                dialog = config['dialog']
         else:
             generator_params = {
                 'max_number_of_generated_tokens': 50,
@@ -196,21 +193,16 @@ class Trainer:
                 'top_k': 100,
                 'top_p': 1.0
             }
-            dialog_payload = {
-                'tags': ['Девяностые', '90-e', 'Денди', 'Детство'],
-                'context': 'Мы играли в фишки и денди, играли в войнушку. Хорошее было детство.',
-                'utterances': ['Привет, как дела?', 'Нормально, сам как?', 'Я тоже хорошо. Расскажи о себе.']
-            }
-            config = {'generator_params': generator_params, 'dialog_payload': dialog_payload}
+            dialog = ['Привет, как дела?', 'Нормально, сам как?', 'Я тоже хорошо. Расскажи о себе.']
+            config = {'generator_params': generator_params, 'dialog': dialog}
 
             with open(config_file_path, 'w') as file:
                 json.dump(config, file, indent=2, ensure_ascii=False)
 
         try:
             generator = LanguageGenerator(self._model.module, self._tokenizer)
-            dialog = Dialog(**dialog_payload)
             candidates = generator(dialog=dialog, **generator_params)
-            payload = {'generator_params': generator_params, 'dialog_payload': dialog_payload, 'candidates': candidates}
+            payload = {'generator_params': generator_params, 'dialog': dialog, 'candidates': candidates}
         except:
             tb = traceback.format_exc()
             payload = {'exception': tb}

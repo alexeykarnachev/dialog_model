@@ -45,8 +45,8 @@ def get_dataloader(
         samples_offset,
         data_shuffle_seed,
         is_distributed,
-        pad_token_id,
-        end_of_prefix_token_id):
+        pad_token_id
+):
     dataset = SerializedDataset(dataset_dir)
 
     sampler = LengthSortSampler(
@@ -57,7 +57,7 @@ def get_dataloader(
         is_distributed=is_distributed
     )
 
-    collate = Collate(pad_token_id=pad_token_id, end_of_prefix_token_id=end_of_prefix_token_id)
+    collate = Collate(pad_token_id=pad_token_id)
 
     dataloader = DataLoader(
         dataset=dataset, batch_size=batch_size, sampler=sampler, num_workers=num_workers, collate_fn=collate)
@@ -68,9 +68,9 @@ def get_dataloader(
 class Collate:
     _LM_LOSS_IGNORE_LABEL = -100
 
-    def __init__(self, pad_token_id, end_of_prefix_token_id):
+    def __init__(self, pad_token_id, device=None):
         self._pad_token_id = pad_token_id
-        self._end_of_prefix_token_id = end_of_prefix_token_id
+        self._device = device
 
     def __call__(self, samples) -> DialogModelInput:
         max_len = max(len(sample) for sample in samples)
@@ -83,11 +83,12 @@ class Collate:
             token_ids[i, :len(sample)] = sample
             lm_labels[i, :len(sample)] = sample
 
-            prefix_end_pos = np.argmax(sample == self._end_of_prefix_token_id)
-            lm_labels[i, :prefix_end_pos + 1] = self._LM_LOSS_IGNORE_LABEL
-
         token_ids = torch.tensor(token_ids, dtype=torch.long)
         lm_labels = torch.tensor(lm_labels, dtype=torch.long)
+
+        if self._device is not None:
+            token_ids = token_ids.to(self._device)
+            lm_labels = lm_labels.to(self._device) if lm_labels is not None else lm_labels
 
         model_input = DialogModelInput(token_ids=token_ids, lm_labels=lm_labels, past=None)
 

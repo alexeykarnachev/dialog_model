@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from dialog_model.log_config import prepare_logging
-from dialog_model.training.trainer import Trainer
+from dialog_model.trainer import Trainer
 from dialog_model.utils import get_file_md5_checksum
 
 _HASH_ARGS = (
