@@ -39,6 +39,6 @@ def _resize_embeddings(model, vocab_size: int, reference_token_id=None):
     if reference_token_id is None:
         reference_emb = model.base_model.wte.weight.data.mean(0)
     else:
-        reference_emb = model.base_model.wte.weight.data[reference_token_id].copy()
+        reference_emb = model.base_model.wte.weight.data[reference_token_id]
 
     model.base_model.wte.weight.data[idx:] = reference_emb.unsqueeze(0)
