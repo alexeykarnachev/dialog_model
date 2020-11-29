@@ -64,10 +64,41 @@ class Trainer:
         self._global_step = None
         self._samples_seen = None
 
+        checkpoint_dir = self._experiment_dir / 'checkpoint'
+        checkpoint_dir.mkdir(exist_ok=True)
+        self._checkpoint_file_path = checkpoint_dir / 'last.ckpt'
+
     def run(self):
         get_pretrained_gpt2_with_lm_head(self._gpt2_name_or_path)
         load_tokenizer(self._train_dataset_dir)
         mp.spawn(self._train, nprocs=self._world_size, join=True)
+
+    def _save_checkpoint(self):
+        checkpoint = {
+            'scaler_state_dict': self._scaler.state_dict(),
+            'model_state_dict': self._model.state_dict(),
+            'optimizer_state_dict': self._optimizer.state_dict(),
+            'scheduler_state_dict': self._scheduler.state_dict(),
+            'global_step': self._global_step,
+            'samples_seen': self._samples_seen,
+            'world_size': self._world_size
+        }
+
+        torch.save(checkpoint, self._checkpoint_file_path)
+
+    def _load_checkpoint(self):
+        checkpoint = torch.load(self._checkpoint_file_path, map_location='cpu')
+        checkpoint_world_size = checkpoint['world_size']
+        if checkpoint_world_size != self._world_size:
+            raise ValueError(f'Checkpoint world size {checkpoint_world_size} does not match with the current '
+                             f'world size {self._world_size}.')
+
+        self._scaler.load_state_dict(checkpoint['scaler_state_dict'])
+        self._model.load_state_dict(checkpoint['model_state_dict'].to(self._rank))
+        self._optimizer.load_state_dict(checkpoint['optimizer_state_dict'].to(self._rank))
+        self._scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        self._global_step = checkpoint['global_step']
+        self._samples_seen = checkpoint['samples_seen']
 
     def _train(self, rank):
         _seed_everything(self._data_shuffle_seed)
@@ -76,15 +107,20 @@ class Trainer:
         self._scaler = GradScaler()
         self._model = self._get_model(self._rank)
         self._optimizer = AdamW(params=self._model.parameters(), lr=self._learning_rate)
-        self._train_dl = self._get_dataloader(is_train=True, samples_offset=0)
-        self._valid_dl = self._get_dataloader(is_train=False, samples_offset=0)
-        self._global_step = 0
-        self._samples_seen = 0
 
         num_training_steps = len(self._train_dl) * self._n_epochs
         num_warmup_steps = self._warmup_ratio * num_training_steps
         self._scheduler = get_linear_schedule_with_warmup(
             optimizer=self._optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps)
+
+        self._global_step = 0
+        self._samples_seen = 0
+
+        if self._checkpoint_file_path.is_file():
+            self._load_checkpoint()
+
+        self._train_dl = self._get_dataloader(is_train=True, samples_offset=self._samples_seen)
+        self._valid_dl = self._get_dataloader(is_train=False, samples_offset=0)
 
         if self._rank == 0:
             self._writer = SummaryWriter(self._experiment_dir / 'tb_logs')
@@ -93,12 +129,6 @@ class Trainer:
 
         for i_epoch in range(self._n_epochs):
             for i_step, (token_ids, lm_labels) in enumerate(self._train_dl):
-
-                if self._rank == 0 and i_step and i_step % self._validate_each_n_steps == 0:
-                    self._generate()
-                    valid_loss = self._validate()
-                    self._write_tb_logs({'loss/valid': valid_loss})
-
                 train_loss = self._train_step(token_ids, lm_labels)
 
                 if rank == 0:
@@ -107,6 +137,12 @@ class Trainer:
                     self._write_tb_logs({'learning-rate': self._optimizer.param_groups[0]['lr']})
                     self._write_tb_logs({'max_seq_len': token_ids.size()[1]})
                     self._write_tb_logs({'epoch': i_epoch})
+
+                if self._rank == 0 and i_step % self._validate_each_n_steps == 0:
+                    self._generate()
+                    valid_loss = self._validate()
+                    self._save_checkpoint()
+                    self._write_tb_logs({'loss/valid': valid_loss})
 
         dist.destroy_process_group()
 

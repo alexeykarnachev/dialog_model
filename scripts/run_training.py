@@ -33,7 +33,7 @@ def main():
     args = _parse_args()
     experiment_hash = _calc_experiment_hash(args)
     experiment_dir = Path(args.experiments_root_dir) / experiment_hash
-    experiment_dir.mkdir(exist_ok=False, parents=True)
+    experiment_dir.mkdir(exist_ok=True, parents=True)
     prepare_logging(experiment_dir / 'logs')
 
     trainer = Trainer(
