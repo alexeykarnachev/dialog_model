@@ -115,7 +115,8 @@ class Trainer:
         self._train_dl = self._get_dataloader(is_train=True, samples_offset=0)
         self._valid_dl = self._get_dataloader(is_train=False, samples_offset=0)
 
-        num_training_steps = len(self._train_dl) * self._n_epochs
+        steps_per_epoch = len(self._train_dl)
+        num_training_steps = steps_per_epoch * self._n_epochs
         num_warmup_steps = self._warmup_ratio * num_training_steps
         self._scheduler = get_linear_schedule_with_warmup(
             optimizer=self._optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps)
@@ -128,16 +129,18 @@ class Trainer:
             self._train_dl = tqdm.tqdm(
                 self._train_dl, desc='Train step', total=len(self._train_dl), position=1, initial=self._global_step)
 
-        for i_epoch in range(self._n_epochs):
+        while self._global_step < num_training_steps:
             for i_step, (token_ids, lm_labels) in enumerate(self._train_dl):
                 train_loss = self._train_step(token_ids, lm_labels)
 
                 if rank == 0:
-                    self._train_dl.set_postfix({'loss/train': train_loss, 'samples_seen': self._samples_seen})
+                    self._train_dl.set_postfix({
+                        'loss/train': train_loss,
+                        'samples_seen': self._samples_seen,
+                        'epoch': self._global_step / steps_per_epoch})
                     self._write_tb_logs({'loss/train': train_loss})
                     self._write_tb_logs({'learning-rate': self._optimizer.param_groups[0]['lr']})
                     self._write_tb_logs({'max_seq_len': token_ids.size()[1]})
-                    self._write_tb_logs({'epoch': i_epoch})
 
                 if self._rank == 0 and self._global_step % self._validate_each_n_steps == 0:
                     self._generate()

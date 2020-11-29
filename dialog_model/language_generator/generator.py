@@ -28,7 +28,7 @@ class LanguageGenerator:
     ):
         self._model.eval()
 
-        encoded_dialog = self._tokenizer.encode([dialog], with_subdialogs=False)[0]
+        encoded_dialog = self._tokenizer.encode([dialog])[0]
         max_number_of_generated_tokens = self._tokenizer.max_n_tokens - len(encoded_dialog)
         encoded = [list(encoded_dialog) for _ in range(num_return_sequences)]
         collate_fn = Collate(pad_token_id=self._tokenizer.pad_token_id, device=self._model.device)
