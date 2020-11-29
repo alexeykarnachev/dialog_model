@@ -87,15 +87,15 @@ class Trainer:
         torch.save(checkpoint, self._checkpoint_file_path)
 
     def _load_checkpoint(self):
-        checkpoint = torch.load(self._checkpoint_file_path, map_location='cpu')
+        checkpoint = torch.load(self._checkpoint_file_path, map_location=self._rank)
         checkpoint_world_size = checkpoint['world_size']
         if checkpoint_world_size != self._world_size:
             raise ValueError(f'Checkpoint world size {checkpoint_world_size} does not match with the current '
                              f'world size {self._world_size}.')
 
         self._scaler.load_state_dict(checkpoint['scaler_state_dict'])
-        self._model.load_state_dict(checkpoint['model_state_dict'].to(self._rank))
-        self._optimizer.load_state_dict(checkpoint['optimizer_state_dict'].to(self._rank))
+        self._model.load_state_dict(checkpoint['model_state_dict'])
+        self._optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self._scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         self._global_step = checkpoint['global_step']
         self._samples_seen = checkpoint['samples_seen']
