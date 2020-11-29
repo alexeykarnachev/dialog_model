@@ -87,7 +87,7 @@ class Trainer:
         torch.save(checkpoint, self._checkpoint_file_path)
 
     def _load_checkpoint(self):
-        checkpoint = torch.load(self._checkpoint_file_path, map_location=self._rank)
+        checkpoint = torch.load(self._checkpoint_file_path, map_location='cpu')
         checkpoint_world_size = checkpoint['world_size']
         if checkpoint_world_size != self._world_size:
             raise ValueError(f'Checkpoint world size {checkpoint_world_size} does not match with the current '
