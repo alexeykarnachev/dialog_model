@@ -111,7 +111,6 @@ class Trainer:
 
     def _train_step(self, token_ids, lm_labels):
         self._model.train()
-        self._scheduler.step()
         self._optimizer.zero_grad()
 
         with autocast():
@@ -122,12 +121,12 @@ class Trainer:
         self._scaler.update()
         dist.all_reduce(loss)
         loss = loss.item() / self._world_size
-        loss = loss.item()
 
         samples_seen = torch.tensor(len(token_ids), device=self._rank)
         dist.all_reduce(samples_seen)
         self._samples_seen += samples_seen.item()
         self._global_step += 1
+        self._scheduler.step()
 
         return loss
 
