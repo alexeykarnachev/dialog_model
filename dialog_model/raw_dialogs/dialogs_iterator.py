@@ -33,7 +33,9 @@ class DialogsIterator(abc.ABC):
 
         for id_, comment in ids_and_comments:
             parent_id = int(comment['parent_id'])
-            comment_text = self._process_comment(comment['text'])
+            comment = comment['text']
+            comment = comment.replace('\n', ' ')
+            comment_text = self._process_comment(comment)
             tree.create_node(identifier=id_, parent=parent_id, data=comment_text)
 
         return tree
