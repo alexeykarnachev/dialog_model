@@ -109,11 +109,6 @@ class Trainer:
         self._model = self._get_model(self._rank)
         self._optimizer = AdamW(params=self._model.parameters(), lr=self._learning_rate)
 
-        num_training_steps = len(self._train_dl) * self._n_epochs
-        num_warmup_steps = self._warmup_ratio * num_training_steps
-        self._scheduler = get_linear_schedule_with_warmup(
-            optimizer=self._optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps)
-
         self._global_step = 0
         self._samples_seen = 0
 
