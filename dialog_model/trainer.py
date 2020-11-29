@@ -15,7 +15,7 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 from dialog_model.dataset.serialization import load_tokenizer
 from dialog_model.dataset.serialized_dataset import get_dataloader
 from dialog_model.language_generator.generator import LanguageGenerator
-from dialog_model.modelling.model_io import get_pretrained_gpt2_with_lm_head
+from dialog_model.model_io import get_pretrained_gpt2_with_lm_head
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
@@ -87,20 +87,21 @@ class Trainer:
                 self._train_dl, desc='Train step', total=len(self._train_dl), position=1, initial=self._global_step)
 
         for i_epoch in range(self._n_epochs):
-            for i_step, model_input in enumerate(self._train_dl):
+            for i_step, (token_ids, lm_labels) in enumerate(self._train_dl):
 
                 if self._rank == 0 and i_step and i_step % self._validate_each_n_steps == 0:
                     self._generate()
                     valid_loss = self._validate()
                     self._write_tb_logs({'loss/valid': valid_loss})
 
-                train_loss = self._train_step(model_input)
+                train_loss = self._train_step(token_ids, lm_labels)
 
                 if rank == 0:
                     self._train_dl.set_postfix({'loss/train': train_loss})
+                    self._train_dl.set_postfix({'samples_sees': self._samples_seen})
                     self._write_tb_logs({'loss/train': train_loss})
                     self._write_tb_logs({'learning-rate': self._optimizer.param_groups[0]['lr']})
-                    self._write_tb_logs({'max_seq_len': model_input.token_ids.size()[1]})
+                    self._write_tb_logs({'max_seq_len': token_ids.size()[1]})
                     self._write_tb_logs({'epoch': i_epoch})
 
         dist.destroy_process_group()
@@ -109,21 +110,26 @@ class Trainer:
         for tag, val in values_dict.items():
             self._writer.add_scalar(tag=tag, scalar_value=val, global_step=self._global_step)
 
-    def _train_step(self, model_input):
+    def _train_step(self, token_ids, lm_labels):
         self._model.train()
         self._scheduler.step()
         self._optimizer.zero_grad()
 
         with autocast():
-            loss, *_ = self._model(model_input)
+            loss, *_ = self._model(token_ids, labels=lm_labels)
 
         self._scaler.scale(loss).backward()
         self._scaler.step(self._optimizer)
         self._scaler.update()
+        dist.all_reduce(loss)
+        loss = loss.item() / self._world_size
 
+        samples_seen = torch.tensor(len(token_ids))
+        dist.all_reduce(samples_seen)
+        self._samples_seen += samples_seen.item()
         self._global_step += 1
 
-        return loss.item()
+        return loss
 
     def _setup_ddp(self, rank):
         os.environ['MASTER_ADDR'] = 'localhost'
@@ -154,9 +160,9 @@ class Trainer:
 
         loss = 0
         valid_dl = tqdm.tqdm(self._valid_dl, desc='Valid step', total=len(self._valid_dl), position=2)
-        for model_input in valid_dl:
+        for token_ids, lm_labels in valid_dl:
             with autocast():
-                loss_on_step, *_ = self._model(model_input)
+                loss_on_step, *_ = self._model(token_ids, labels=lm_labels)
                 loss += loss_on_step.item()
 
         loss /= len(valid_dl)

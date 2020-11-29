@@ -4,7 +4,6 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from dialog_model.data_structures import DialogModelInput
 from dialog_model.dataset.length_sort_sampler import LengthSortSampler
 from dialog_model.dataset.serialization import read_index, open_data_file
 
@@ -90,6 +89,4 @@ class Collate:
             token_ids = token_ids.to(self._device)
             lm_labels = lm_labels.to(self._device) if lm_labels is not None else lm_labels
 
-        model_input = DialogModelInput(token_ids=token_ids, lm_labels=lm_labels, past=None)
-
-        return model_input
+        return token_ids, lm_labels
