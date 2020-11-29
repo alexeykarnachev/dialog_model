@@ -97,8 +97,7 @@ class Trainer:
                 train_loss = self._train_step(token_ids, lm_labels)
 
                 if rank == 0:
-                    self._train_dl.set_postfix({'loss/train': train_loss})
-                    self._train_dl.set_postfix({'samples_sees': self._samples_seen})
+                    self._train_dl.set_postfix({'loss/train': train_loss, 'samples_sees': self._samples_seen})
                     self._write_tb_logs({'loss/train': train_loss})
                     self._write_tb_logs({'learning-rate': self._optimizer.param_groups[0]['lr']})
                     self._write_tb_logs({'max_seq_len': token_ids.size()[1]})
@@ -121,13 +120,14 @@ class Trainer:
         self._scaler.scale(loss).backward()
         self._scaler.step(self._optimizer)
         self._scaler.update()
-        dist.all_reduce(loss)
-        loss = loss.item() / self._world_size
+        # dist.all_reduce(loss)
+        # loss = loss.item() / self._world_size
+        loss = loss.item()
 
-        samples_seen = torch.tensor(len(token_ids), device=self._rank)
-        dist.all_reduce(samples_seen)
-        self._samples_seen += samples_seen.item()
-        self._global_step += 1
+        # samples_seen = torch.tensor(len(token_ids), device=self._rank)
+        # dist.all_reduce(samples_seen)
+        # self._samples_seen += samples_seen.item()
+        # self._global_step += 1
 
         return loss
 
