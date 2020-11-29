@@ -4,7 +4,8 @@ import numpy as np
 from more_itertools import flatten, chunked
 from transformers import GPT2TokenizerFast
 
-END_OF_UTTERANCE = '\n'
+END_OF_UTTERANCE = '[END_OF_UTTERANCE]'
+SPECIAL_TOKENS = [END_OF_UTTERANCE]
 
 
 class DialogsTokenizer:
@@ -13,6 +14,7 @@ class DialogsTokenizer:
 
         self._max_n_tokens = max_n_tokens
 
+        self._tokenizer.add_special_tokens({'additional_special_tokens': SPECIAL_TOKENS})
         self._dtype = np.uint16 if self._tokenizer.vocab_size < 65500 else np.int32
         self._end_of_utterance_token_id = self._tokenizer.convert_tokens_to_ids(END_OF_UTTERANCE)
 
