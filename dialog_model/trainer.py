@@ -1,7 +1,6 @@
 import json
 import os
 import traceback
-from collections import defaultdict
 from pathlib import Path
 
 import torch
@@ -16,7 +15,6 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 from dialog_model.dataset.serialization import load_tokenizer
 from dialog_model.dataset.serialized_dataset import get_dataloader
 from dialog_model.language_generator.generator import LanguageGenerator
-from dialog_model.modelling.model import DialogModel
 from dialog_model.modelling.model_io import get_pretrained_gpt2_with_lm_head
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
@@ -32,7 +30,6 @@ class Trainer:
             train_dataset_dir,
             valid_dataset_dir,
             gpt2_name_or_path,
-            unlikelihood_alpha,
             worker_batch_size,
             data_shuffle_seed,
             learning_rate,
@@ -44,7 +41,6 @@ class Trainer:
         self._train_dataset_dir = train_dataset_dir
         self._valid_dataset_dir = valid_dataset_dir
         self._gpt2_name_or_path = gpt2_name_or_path
-        self._unlikelihood_alpha = unlikelihood_alpha
         self._worker_batch_size = worker_batch_size
         self._data_shuffle_seed = data_shuffle_seed
         self._learning_rate = learning_rate
@@ -62,6 +58,7 @@ class Trainer:
         self._train_dl = None
         self._valid_dl = None
         self._global_step = None
+        self._samples_seen = None
 
     def run(self):
         get_pretrained_gpt2_with_lm_head(self._gpt2_name_or_path, vocab_size=None)
@@ -76,34 +73,32 @@ class Trainer:
         self._optimizer = AdamW(params=self._model.parameters(), lr=self._learning_rate)
         self._train_dl = self._get_dataloader(is_train=True, samples_offset=0)
         self._valid_dl = self._get_dataloader(is_train=False, samples_offset=0)
+        self._global_step = 0
+        self._samples_seen = 0
 
         num_training_steps = len(self._train_dl) * self._n_epochs
         num_warmup_steps = self._warmup_ratio * num_training_steps
         self._scheduler = get_linear_schedule_with_warmup(
             optimizer=self._optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps)
 
-        self._global_step = 0
-
         if self._rank == 0:
             self._writer = SummaryWriter(self._experiment_dir / 'tb_logs')
-            self._train_dl = tqdm.tqdm(self._train_dl, desc='Train step', total=len(self._train_dl), position=1)
+            self._train_dl = tqdm.tqdm(
+                self._train_dl, desc='Train step', total=len(self._train_dl), position=1, initial=self._global_step)
 
         for i_epoch in range(self._n_epochs):
             for i_step, model_input in enumerate(self._train_dl):
-                self._model.train()
 
                 if self._rank == 0 and i_step and i_step % self._validate_each_n_steps == 0:
                     self._generate()
-                    valid_losses = self._validate()
-                    self._write_tb_logs(valid_losses)
+                    valid_loss = self._validate()
+                    self._write_tb_logs({'loss/valid': valid_loss})
 
-                self._scheduler.step()
-                train_losses = self._train_step(model_input)
-                self._global_step += 1
+                train_loss = self._train_step(model_input)
 
                 if rank == 0:
-                    self._train_dl.set_postfix({'loss': train_losses['loss/train']})
-                    self._write_tb_logs(train_losses)
+                    self._train_dl.set_postfix({'loss/train': train_loss})
+                    self._write_tb_logs({'loss/train': train_loss})
                     self._write_tb_logs({'learning-rate': self._optimizer.param_groups[0]['lr']})
                     self._write_tb_logs({'max_seq_len': model_input.token_ids.size()[1]})
                     self._write_tb_logs({'epoch': i_epoch})
@@ -115,21 +110,20 @@ class Trainer:
             self._writer.add_scalar(tag=tag, scalar_value=val, global_step=self._global_step)
 
     def _train_step(self, model_input):
+        self._model.train()
+        self._scheduler.step()
         self._optimizer.zero_grad()
-        with autocast():
-            model_output = self._model(model_input)
 
-        self._scaler.scale(model_output.loss).backward()
+        with autocast():
+            loss, *_ = self._model(model_input)
+
+        self._scaler.scale(loss).backward()
         self._scaler.step(self._optimizer)
         self._scaler.update()
 
-        losses = {
-            'lm_loss/train': model_output.lm_loss.item(),
-            'ul_loss/train': model_output.ul_loss.item(),
-            'loss/train': model_output.loss.item()
-        }
+        self._global_step += 1
 
-        return losses
+        return loss.item()
 
     def _setup_ddp(self, rank):
         os.environ['MASTER_ADDR'] = 'localhost'
@@ -137,8 +131,7 @@ class Trainer:
         dist.init_process_group("nccl", rank=rank, world_size=self._world_size)
 
     def _get_model(self, rank):
-        gpt2 = get_pretrained_gpt2_with_lm_head(self._gpt2_name_or_path, vocab_size=self._tokenizer.vocab_size)
-        model = DialogModel(gpt2_lm_head=gpt2, unlikelihood_alpha=self._unlikelihood_alpha).to(rank)
+        model = get_pretrained_gpt2_with_lm_head(self._gpt2_name_or_path, vocab_size=self._tokenizer.vocab_size)
         model = DistributedDataParallel(model, device_ids=[rank])
 
         return model
@@ -159,19 +152,16 @@ class Trainer:
     def _validate(self):
         self._model.eval()
 
-        valid_results = defaultdict(lambda: 0)
+        loss = 0
         valid_dl = tqdm.tqdm(self._valid_dl, desc='Valid step', total=len(self._valid_dl), position=2)
         for model_input in valid_dl:
             with autocast():
-                model_output = self._model(model_input)
+                loss_on_step, *_ = self._model(model_input)
+                loss += loss_on_step.item()
 
-            valid_results['lm_loss/valid'] += model_output.lm_loss
-            valid_results['ul_loss/valid'] += model_output.ul_loss
-            valid_results['loss/valid'] += model_output.loss
+        loss /= len(valid_dl)
 
-        valid_results = {k: (v / len(valid_dl)).item() for k, v in valid_results.items()}
-
-        return valid_results
+        return loss
 
     def _generate(self):
         out_dir = self._experiment_dir / 'generated'
