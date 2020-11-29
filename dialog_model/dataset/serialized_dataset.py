@@ -71,7 +71,7 @@ class Collate:
         self._pad_token_id = pad_token_id
         self._device = device
 
-    def __call__(self, samples) -> DialogModelInput:
+    def __call__(self, samples):
         max_len = max(len(sample) for sample in samples)
         token_ids = np.empty((len(samples), max_len))
         lm_labels = np.empty_like(token_ids)
