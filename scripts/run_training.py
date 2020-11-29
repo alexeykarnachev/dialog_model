@@ -19,6 +19,7 @@ def _parse_args():
     parser.add_argument('--gpt2_name_or_path', type=str, required=True)
     parser.add_argument('--worker_batch_size', type=int, required=True)
     parser.add_argument('--data_shuffle_seed', type=int, required=False, default=228)
+    parser.add_argument('--freeze_n_layers', type=int, required=True)
     parser.add_argument('--learning_rate', type=float, required=True)
     parser.add_argument('--n_epochs', type=int, required=True)
     parser.add_argument('--validate_each_n_steps', type=int, required=True)
@@ -42,6 +43,7 @@ def main():
         gpt2_name_or_path=args.gpt2_name_or_path,
         worker_batch_size=args.worker_batch_size,
         data_shuffle_seed=args.data_shuffle_seed,
+        freeze_n_layers=args.freeze_n_layers,
         learning_rate=args.learning_rate,
         n_epochs=args.n_epochs,
         validate_each_n_steps=args.validate_each_n_steps,

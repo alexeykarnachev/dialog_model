@@ -34,7 +34,7 @@ class Trainer:
             gpt2_name_or_path,
             worker_batch_size,
             data_shuffle_seed,
-            # freeze_n_layers,
+            freeze_n_layers,
             learning_rate,
             n_epochs,
             validate_each_n_steps,
@@ -46,7 +46,7 @@ class Trainer:
         self._gpt2_name_or_path = gpt2_name_or_path
         self._worker_batch_size = worker_batch_size
         self._data_shuffle_seed = data_shuffle_seed
-        self._freeze_n_layers = 1 #freeze_n_layers
+        self._freeze_n_layers = freeze_n_layers
         self._learning_rate = learning_rate
         self._n_epochs = n_epochs
         self._validate_each_n_steps = validate_each_n_steps
@@ -65,8 +65,7 @@ class Trainer:
         self._samples_seen = None
 
     def run(self):
-        get_pretrained_gpt2_with_lm_head(
-            self._gpt2_name_or_path, vocab_size=None, freeze_n_layers=self._freeze_n_layers)
+        get_pretrained_gpt2_with_lm_head(self._gpt2_name_or_path)
         load_tokenizer(self._train_dataset_dir)
         mp.spawn(self._train, nprocs=self._world_size, join=True)
 
