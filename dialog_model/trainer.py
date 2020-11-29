@@ -141,11 +141,7 @@ class Trainer:
         dist.init_process_group("nccl", rank=rank, world_size=self._world_size)
 
     def _get_model(self, rank):
-        model = get_pretrained_gpt2_with_lm_head(
-            self._gpt2_name_or_path,
-            vocab_size=self._tokenizer.vocab_size,
-            freeze_n_layers=self._freeze_n_layers,
-            reference_token_id=self._tokenizer.reference_token_id)
+        model = get_pretrained_gpt2_with_lm_head(self._gpt2_name_or_path, freeze_n_layers=self._freeze_n_layers)
         model = model.to(rank)
         model = DistributedDataParallel(model, device_ids=[rank])
 
