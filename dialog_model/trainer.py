@@ -139,7 +139,7 @@ class Trainer:
                     self._write_tb_logs({'max_seq_len': token_ids.size()[1]})
                     self._write_tb_logs({'epoch': i_epoch})
 
-                if self._rank == 0 and i_step % self._validate_each_n_steps == 0:
+                if self._rank == 0 and self._global_step % self._validate_each_n_steps == 0:
                     self._generate()
                     valid_loss = self._validate()
                     self._save_checkpoint()
