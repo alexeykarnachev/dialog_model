@@ -1,8 +1,10 @@
 import json
 import os
+import random
 import traceback
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
@@ -32,6 +34,7 @@ class Trainer:
             gpt2_name_or_path,
             worker_batch_size,
             data_shuffle_seed,
+            # freeze_n_layers,
             learning_rate,
             n_epochs,
             validate_each_n_steps,
@@ -43,6 +46,7 @@ class Trainer:
         self._gpt2_name_or_path = gpt2_name_or_path
         self._worker_batch_size = worker_batch_size
         self._data_shuffle_seed = data_shuffle_seed
+        self._freeze_n_layers = 1 #freeze_n_layers
         self._learning_rate = learning_rate
         self._n_epochs = n_epochs
         self._validate_each_n_steps = validate_each_n_steps
@@ -61,11 +65,13 @@ class Trainer:
         self._samples_seen = None
 
     def run(self):
-        get_pretrained_gpt2_with_lm_head(self._gpt2_name_or_path, vocab_size=None)
+        get_pretrained_gpt2_with_lm_head(
+            self._gpt2_name_or_path, vocab_size=None, freeze_n_layers=self._freeze_n_layers)
         load_tokenizer(self._train_dataset_dir)
         mp.spawn(self._train, nprocs=self._world_size, join=True)
 
     def _train(self, rank):
+        _seed_everything(self._data_shuffle_seed)
         self._setup_ddp(rank)
         self._rank = rank
         self._scaler = GradScaler()
@@ -136,7 +142,8 @@ class Trainer:
         dist.init_process_group("nccl", rank=rank, world_size=self._world_size)
 
     def _get_model(self, rank):
-        model = get_pretrained_gpt2_with_lm_head(self._gpt2_name_or_path, vocab_size=self._tokenizer.vocab_size)
+        model = get_pretrained_gpt2_with_lm_head(
+            self._gpt2_name_or_path, vocab_size=self._tokenizer.vocab_size, freeze_n_layers=self._freeze_n_layers)
         model = model.to(rank)
         model = DistributedDataParallel(model, device_ids=[rank])
 
@@ -206,3 +213,12 @@ class Trainer:
             payload = json.dumps(payload, ensure_ascii=False, indent=2)
             file.write(payload)
             file.write('\n')
+
+
+def _seed_everything(seed):
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True

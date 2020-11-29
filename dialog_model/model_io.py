@@ -1,7 +1,7 @@
 from transformers import GPT2LMHeadModel
 
 
-def get_pretrained_gpt2_with_lm_head(name_or_path, vocab_size):
+def get_pretrained_gpt2_with_lm_head(name_or_path, vocab_size, freeze_n_layers):
     model = GPT2LMHeadModel.from_pretrained(name_or_path, output_hidden_states=True)
     if vocab_size is not None:
         _resize_embeddings(model=model, vocab_size=vocab_size)
