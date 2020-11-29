@@ -4,7 +4,8 @@ import numpy as np
 from more_itertools import flatten, chunked
 from transformers import GPT2TokenizerFast
 
-END_OF_UTTERANCE = '—'
+END_OF_UTTERANCE = '[END_OF_UTTERANCE]'
+SPECIAL_TOKENS = [END_OF_UTTERANCE]
 
 
 class DialogsTokenizer:
@@ -13,6 +14,7 @@ class DialogsTokenizer:
 
         self._max_n_tokens = max_n_tokens
 
+        self._tokenizer.add_special_tokens({'additional_special_tokens': SPECIAL_TOKENS})
         self._dtype = np.uint16 if self._tokenizer.vocab_size < 65500 else np.int32
         self._end_of_utterance_token_id = self._tokenizer.convert_tokens_to_ids(END_OF_UTTERANCE)
         self._reference_token_id = self._tokenizer.convert_tokens_to_ids('—')
@@ -31,7 +33,7 @@ class DialogsTokenizer:
 
     @property
     def vocab_size(self):
-        return self._tokenizer.vocab_size
+        return max(self._tokenizer.all_special_ids) + 1
 
     @property
     def max_n_tokens(self):
@@ -57,8 +59,3 @@ class DialogsTokenizer:
 
     def decode(self, encoded):
         return self._tokenizer.batch_decode(encoded)
-
-
-if __name__ == '__main__':
-    t = GPT2TokenizerFast.from_pretrained('sberbank-ai/rugpt3medium_based_on_gpt2')
-    a = 1
