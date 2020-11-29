@@ -17,6 +17,7 @@ class DialogsTokenizer:
         self._tokenizer.add_special_tokens({'additional_special_tokens': SPECIAL_TOKENS})
         self._dtype = np.uint16 if self._tokenizer.vocab_size < 65500 else np.int32
         self._end_of_utterance_token_id = self._tokenizer.convert_tokens_to_ids(END_OF_UTTERANCE)
+        self._reference_token_id = self._tokenizer.convert_tokens_to_ids('—')
 
     @property
     def pad_token_id(self):
@@ -25,6 +26,10 @@ class DialogsTokenizer:
     @property
     def end_of_utterance_token_id(self):
         return self._end_of_utterance_token_id
+
+    @property
+    def reference_token_id(self):
+        return self._reference_token_id
 
     @property
     def vocab_size(self):

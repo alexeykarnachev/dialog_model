@@ -3,11 +3,11 @@ import re
 from transformers import GPT2LMHeadModel
 
 
-def get_pretrained_gpt2_with_lm_head(name_or_path, vocab_size=None, freeze_n_layers=None):
+def get_pretrained_gpt2_with_lm_head(name_or_path, vocab_size=None, freeze_n_layers=None, reference_token_id=None):
     model = GPT2LMHeadModel.from_pretrained(name_or_path, output_hidden_states=True)
 
     if vocab_size is not None:
-        _resize_embeddings(model=model, vocab_size=vocab_size)
+        _resize_embeddings(model=model, vocab_size=vocab_size, reference_token_id=reference_token_id)
 
     if freeze_n_layers is not None:
         freeze_layers_prefixes = {f'transformer.h.{i}.' for i in range(freeze_n_layers)}
@@ -25,8 +25,7 @@ def get_pretrained_gpt2_with_lm_head(name_or_path, vocab_size=None, freeze_n_lay
     return model
 
 
-def _resize_embeddings(model, vocab_size: int):
-    mean_emb = model.base_model.wte.weight.data.mean(0)
+def _resize_embeddings(model, vocab_size: int, reference_token_id=None):
     old_size = model.base_model.wte.weight.data.size()[0]
     n_new = vocab_size - old_size
 
@@ -37,4 +36,9 @@ def _resize_embeddings(model, vocab_size: int):
 
     model.resize_token_embeddings(vocab_size)
     idx = vocab_size - n_new
-    model.base_model.wte.weight.data[idx:] = mean_emb.unsqueeze(0)
+    if reference_token_id is None:
+        reference_emb = model.base_model.wte.weight.data.mean(0)
+    else:
+        reference_emb = model.base_model.wte.weight.data[reference_token_id].copy()
+
+    model.base_model.wte.weight.data[idx:] = reference_emb.unsqueeze(0)

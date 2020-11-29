@@ -142,7 +142,10 @@ class Trainer:
 
     def _get_model(self, rank):
         model = get_pretrained_gpt2_with_lm_head(
-            self._gpt2_name_or_path, vocab_size=self._tokenizer.vocab_size, freeze_n_layers=self._freeze_n_layers)
+            self._gpt2_name_or_path,
+            vocab_size=self._tokenizer.vocab_size,
+            freeze_n_layers=self._freeze_n_layers,
+            reference_token_id=self._tokenizer.reference_token_id)
         model = model.to(rank)
         model = DistributedDataParallel(model, device_ids=[rank])
 
