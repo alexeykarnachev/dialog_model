@@ -124,7 +124,7 @@ class Trainer:
         dist.all_reduce(loss)
         loss = loss.item() / self._world_size
 
-        samples_seen = torch.tensor(len(token_ids))
+        samples_seen = torch.tensor(len(token_ids), device=self._rank)
         dist.all_reduce(samples_seen)
         self._samples_seen += samples_seen.item()
         self._global_step += 1
