@@ -99,6 +99,7 @@ class Trainer:
         self._scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         self._global_step = checkpoint['global_step']
         self._samples_seen = checkpoint['samples_seen']
+        self._train_dl = self._get_dataloader(is_train=True, samples_offset=self._samples_seen)
 
     def _train(self, rank):
         _seed_everything(self._data_shuffle_seed)
@@ -116,11 +117,16 @@ class Trainer:
         self._global_step = 0
         self._samples_seen = 0
 
+        self._train_dl = self._get_dataloader(is_train=True, samples_offset=0)
+        self._valid_dl = self._get_dataloader(is_train=False, samples_offset=0)
+
+        num_training_steps = len(self._train_dl) * self._n_epochs
+        num_warmup_steps = self._warmup_ratio * num_training_steps
+        self._scheduler = get_linear_schedule_with_warmup(
+            optimizer=self._optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps)
+
         if self._checkpoint_file_path.is_file():
             self._load_checkpoint()
-
-        self._train_dl = self._get_dataloader(is_train=True, samples_offset=self._samples_seen)
-        self._valid_dl = self._get_dataloader(is_train=False, samples_offset=0)
 
         if self._rank == 0:
             self._writer = SummaryWriter(self._experiment_dir / 'tb_logs')
