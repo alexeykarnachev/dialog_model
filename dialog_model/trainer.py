@@ -138,6 +138,7 @@ class Trainer:
 
     def _get_model(self, rank):
         model = get_pretrained_gpt2_with_lm_head(self._gpt2_name_or_path, vocab_size=self._tokenizer.vocab_size)
+        model = model.to(rank)
         model = DistributedDataParallel(model, device_ids=[rank])
 
         return model
