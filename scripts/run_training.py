@@ -8,8 +8,7 @@ from dialog_model.trainer import Trainer
 from dialog_model.utils import get_file_md5_checksum
 
 _HASH_ARGS = (
-    'gpt2_name_or_path', 'unlikelihood_alpha', 'worker_batch_size', 'data_shuffle_seed', 'learning_rate', 'n_epochs',
-    'warmup_ratio')
+    'gpt2_name_or_path', 'worker_batch_size', 'data_shuffle_seed', 'learning_rate', 'n_epochs', 'warmup_ratio')
 
 
 def _parse_args():
@@ -18,7 +17,6 @@ def _parse_args():
     parser.add_argument('--train_dataset_dir', type=str, required=True)
     parser.add_argument('--valid_dataset_dir', type=str, required=True)
     parser.add_argument('--gpt2_name_or_path', type=str, required=True)
-    parser.add_argument('--unlikelihood_alpha', type=float, required=False)
     parser.add_argument('--worker_batch_size', type=int, required=True)
     parser.add_argument('--data_shuffle_seed', type=int, required=False, default=228)
     parser.add_argument('--learning_rate', type=float, required=True)
@@ -42,7 +40,6 @@ def main():
         train_dataset_dir=args.train_dataset_dir,
         valid_dataset_dir=args.valid_dataset_dir,
         gpt2_name_or_path=args.gpt2_name_or_path,
-        unlikelihood_alpha=args.unlikelihood_alpha,
         worker_batch_size=args.worker_batch_size,
         data_shuffle_seed=args.data_shuffle_seed,
         learning_rate=args.learning_rate,
