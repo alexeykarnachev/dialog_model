@@ -133,7 +133,7 @@ class Trainer:
                 train_loss = self._train_step(token_ids, lm_labels)
 
                 if rank == 0:
-                    self._train_dl.set_postfix({'loss/train': train_loss, 'samples_sees': self._samples_seen})
+                    self._train_dl.set_postfix({'loss/train': train_loss, 'samples_seen': self._samples_seen})
                     self._write_tb_logs({'loss/train': train_loss})
                     self._write_tb_logs({'learning-rate': self._optimizer.param_groups[0]['lr']})
                     self._write_tb_logs({'max_seq_len': token_ids.size()[1]})
