@@ -130,8 +130,8 @@ class Trainer:
                 self._train_dl, desc='Train step', total=len(self._train_dl), position=1, initial=self._global_step)
 
         while self._global_step < num_training_steps:
-            for i_step, (token_ids, lm_labels) in enumerate(self._train_dl):
-                train_loss = self._train_step(token_ids, lm_labels)
+            for i_step, (token_ids, token_type_ids, lm_labels) in enumerate(self._train_dl):
+                train_loss = self._train_step(token_ids, token_type_ids, lm_labels)
 
                 if rank == 0:
                     self._train_dl.set_postfix({
@@ -154,12 +154,12 @@ class Trainer:
         for tag, val in values_dict.items():
             self._writer.add_scalar(tag=tag, scalar_value=val, global_step=self._global_step)
 
-    def _train_step(self, token_ids, lm_labels):
+    def _train_step(self, token_ids, token_type_ids, lm_labels):
         self._model.train()
         self._optimizer.zero_grad()
 
         with autocast():
-            loss, *_ = self._model(token_ids, labels=lm_labels)
+            loss, *_ = self._model(token_ids, token_type_ids=token_type_ids, labels=lm_labels)
 
         self._scaler.scale(loss).backward()
         self._scaler.step(self._optimizer)
@@ -199,7 +199,9 @@ class Trainer:
             samples_offset=samples_offset,
             data_shuffle_seed=self._data_shuffle_seed,
             is_distributed=is_train,
-            pad_token_id=self._tokenizer.pad_token_id
+            pad_token_id=self._tokenizer.pad_token_id,
+            end_of_speaker_1_token_id=self._tokenizer.end_of_speaker_1_token_id,
+            end_of_speaker_2_token_id=self._tokenizer.end_of_speaker_2_token_id
         )
 
     @torch.no_grad()
@@ -208,9 +210,9 @@ class Trainer:
 
         loss = 0
         valid_dl = tqdm.tqdm(self._valid_dl, desc='Valid step', total=len(self._valid_dl), position=2)
-        for token_ids, lm_labels in valid_dl:
+        for token_ids, token_type_ids, lm_labels in valid_dl:
             with autocast():
-                loss_on_step, *_ = self._model(token_ids, labels=lm_labels)
+                loss_on_step, *_ = self._model(token_ids, token_type_ids=token_type_ids, labels=lm_labels)
                 loss += loss_on_step.item()
 
         loss /= len(valid_dl)

@@ -31,24 +31,30 @@ class LanguageGenerator:
         encoded_dialog = self._tokenizer.encode([dialog])[0]
         max_number_of_generated_tokens = self._tokenizer.max_n_tokens - len(encoded_dialog)
         encoded = [list(encoded_dialog) for _ in range(num_return_sequences)]
-        collate_fn = Collate(pad_token_id=self._tokenizer.pad_token_id, device=self._model.device)
-
-        token_ids, _ = collate_fn(encoded)
-
-        progress = GenerationProgressTracker(
-            eos_token_id=self._tokenizer.end_of_utterance_token_id,
-            max_length=max_number_of_generated_tokens
+        collate_fn = Collate(
+            pad_token_id=self._tokenizer.pad_token_id,
+            end_of_speaker_1_token_id=self._tokenizer.end_of_speaker_1_token_id,
+            end_of_speaker_2_token_id=self._tokenizer.end_of_speaker_2_token_id,
+            device=self._model.device
         )
+
+        token_ids, token_type_ids, _ = collate_fn(encoded)
+        new_token_type_ids = token_type_ids[:, -1:]
+        new_token_type_ids = new_token_type_ids + 1 if new_token_type_ids[0] == 0 else new_token_type_ids - 1
+
+        eos_token_ids = {self._tokenizer.end_of_speaker_1_token_id, self._tokenizer.end_of_speaker_2_token_id}
+        progress = GenerationProgressTracker(eos_token_ids=eos_token_ids, max_length=max_number_of_generated_tokens)
+        not_eos_positions = [i for i, token_id in enumerate(encoded_dialog) if token_id not in eos_token_ids]
 
         generated_token_ids = torch.zeros(
             num_return_sequences, max_number_of_generated_tokens, dtype=torch.long, device=self._model.device)
 
         past_token_ids = token_ids.detach().clone()
-        not_eos_mask = ~(past_token_ids == self._tokenizer.end_of_utterance_token_id).all(0)
-        past_token_ids = past_token_ids[:, not_eos_mask]
+        past_token_ids = past_token_ids[:, not_eos_positions]
         past_key_values = None
         while not progress.finished:
-            model_output = self._model(token_ids, return_dict=True, past_key_values=past_key_values)
+            model_output = self._model(
+                token_ids, token_type_ids=token_type_ids, return_dict=True, past_key_values=past_key_values)
             next_token_logits = model_output.logits[:, -1, :]
             past_token_ids = torch.cat(tensors=[past_token_ids, generated_token_ids], dim=1)
             _modify_next_token_logits(
@@ -64,6 +70,7 @@ class LanguageGenerator:
             progress.update(next_token_ids)
             generated_token_ids[:, progress.current_length - 1] = next_token_ids
             token_ids = next_token_ids.unsqueeze(1)
+            token_type_ids = new_token_type_ids
             past_key_values = model_output.past_key_values
 
         candidates = _decode_candidates(
