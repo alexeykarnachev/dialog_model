@@ -88,6 +88,7 @@ class Collate:
         lm_labels.fill(self._LM_LOSS_IGNORE_LABEL)
 
         for i, sample in enumerate(samples):
+            sample = np.array(sample)
             token_ids[i, :len(sample)] = sample
             lm_labels[i, :len(sample)] = sample
             token_type_ids[i, :len(sample)] = self._construct_token_type_ids(sample)
