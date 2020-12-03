@@ -106,17 +106,19 @@ class Collate:
     def _construct_token_type_ids(self, token_ids):
         token_type_ids = np.zeros_like(token_ids, dtype=token_ids.dtype)
         current_speaker = None
-        for i, token_id in enumerate(token_type_ids[::-1]):
+        prev_speaker = None
+        for i, token_id in enumerate(token_ids[::-1]):
             if token_id == self._end_of_speaker_1_token_id:
                 current_speaker = 0
             elif token_id == self._end_of_speaker_2_token_id:
                 current_speaker = 1
-            elif current_speaker is None:
-                raise ValueError(
-                    f'Last token id in sample must be end of speaker token: '
-                    f'{self._end_of_speaker_1_token_id} or {self._end_of_speaker_2_token_id}'
-                )
 
-            token_type_ids[-(i + 1)] = current_speaker
+            if current_speaker is not None and prev_speaker is None:
+                token_type_ids[-i:] = abs(current_speaker - 1)
+
+            if current_speaker is not None:
+                token_type_ids[-(i + 1)] = current_speaker
+
+            prev_speaker = current_speaker
 
         return token_type_ids
