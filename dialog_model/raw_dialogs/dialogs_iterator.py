@@ -28,15 +28,17 @@ class DialogsIterator(abc.ABC):
     def _get_dialog_tree(self, line_data):
         tree = Tree()
         tree.create_node(identifier=0)
-        ids_and_comments = ((int(id_), comment) for id_, comment in line_data['comments'].items())
-        ids_and_comments = sorted(ids_and_comments, key=lambda x: x[0])
+        comments = line_data['comments']
+        if comments:
+            ids_and_comments = ((int(id_), comment) for id_, comment in comments.items())
+            ids_and_comments = sorted(ids_and_comments, key=lambda x: x[0])
 
-        for id_, comment in ids_and_comments:
-            parent_id = int(comment['parent_id'])
-            comment = comment['text']
-            comment = comment.replace('\n', ' ')
-            comment_text = self._process_comment(comment)
-            tree.create_node(identifier=id_, parent=parent_id, data=comment_text)
+            for id_, comment in ids_and_comments:
+                parent_id = int(comment['parent_id'])
+                comment = comment['text']
+                comment = comment.replace('\n', ' ')
+                comment_text = self._process_comment(comment)
+                tree.create_node(identifier=id_, parent=parent_id, data=comment_text)
 
         return tree
 
