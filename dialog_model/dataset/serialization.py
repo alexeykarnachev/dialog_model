@@ -48,7 +48,7 @@ def read_number_of_samples(dataset_dir):
 
 
 def build_dataset(
-        dialogs_file_path,
+        dialogs,
         out_dir,
         tokenization_chunk_size,
         tokenizer_name_or_path,
@@ -57,7 +57,6 @@ def build_dataset(
     out_dir = Path(out_dir)
     out_dir.mkdir(exist_ok=True, parents=True)
 
-    dialogs = PikabuDialogsIterator(dialogs_file_path)
     tokenizer_params = {'tokenizer_name_or_path': tokenizer_name_or_path, 'max_n_tokens': max_n_tokens}
     tokenizer = DialogsTokenizer(**tokenizer_params)
     token_ids_iter = _iterate_on_token_ids(
