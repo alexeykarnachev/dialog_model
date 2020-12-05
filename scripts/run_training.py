@@ -14,8 +14,7 @@ _HASH_ARGS = (
 def _parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiments_root_dir', type=str, required=True)
-    parser.add_argument('--train_dataset_dir', type=str, required=True)
-    parser.add_argument('--valid_dataset_dir', type=str, required=True)
+    parser.add_argument('--dataset_dir', type=str, required=True)
     parser.add_argument('--gpt2_name_or_path', type=str, required=True)
     parser.add_argument('--worker_batch_size', type=int, required=True)
     parser.add_argument('--data_shuffle_seed', type=int, required=False, default=228)
@@ -36,10 +35,13 @@ def main():
     experiment_dir.mkdir(exist_ok=True, parents=True)
     prepare_logging(experiment_dir / 'logs')
 
+    train_dataset_dir = Path(args.dataset_dir) / 'train'
+    valid_dataset_dir = Path(args.dataset_dir) / 'valid'
+
     trainer = Trainer(
         experiment_dir=experiment_dir,
-        train_dataset_dir=args.train_dataset_dir,
-        valid_dataset_dir=args.valid_dataset_dir,
+        train_dataset_dir=train_dataset_dir,
+        valid_dataset_dir=valid_dataset_dir,
         gpt2_name_or_path=args.gpt2_name_or_path,
         worker_batch_size=args.worker_batch_size,
         data_shuffle_seed=args.data_shuffle_seed,
