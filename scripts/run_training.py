@@ -61,7 +61,7 @@ def _calc_experiment_hash(args):
     for hash_arg in _HASH_ARGS:
         hash_values.append(args_dict[hash_arg])
 
-    for data_dir in (args.train_dataset_dir, args.valid_dataset_dir):
+    for data_dir in Path(args.dataset_dir).iterdir():
         for file_name in ('data.bin', 'data.idx'):
             file_path = Path(data_dir) / file_name
             hash_values.append(get_file_md5_checksum(file_path))
