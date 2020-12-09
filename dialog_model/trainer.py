@@ -124,12 +124,13 @@ class Trainer:
         if self._checkpoint_file_path.is_file():
             self._load_checkpoint()
 
-        if self._rank == 0:
-            self._writer = SummaryWriter(self._experiment_dir / 'tb_logs')
-            self._train_dl = tqdm.tqdm(
-                self._train_dl, desc='Train step', total=num_training_steps, position=1, initial=self._global_step)
-
         while True:
+
+            if self._rank == 0:
+                self._writer = self._writer or SummaryWriter(self._experiment_dir / 'tb_logs')
+                self._train_dl = tqdm.tqdm(
+                    self._train_dl, desc='Train step', total=num_training_steps, position=1, initial=self._global_step)
+
             for i_step, (token_ids, token_type_ids, lm_labels) in enumerate(self._train_dl):
                 train_loss = self._train_step(token_ids, token_type_ids, lm_labels)
 
