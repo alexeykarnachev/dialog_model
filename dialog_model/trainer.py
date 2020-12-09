@@ -127,9 +127,9 @@ class Trainer:
         if self._rank == 0:
             self._writer = SummaryWriter(self._experiment_dir / 'tb_logs')
             self._train_dl = tqdm.tqdm(
-                self._train_dl, desc='Train step', total=len(self._train_dl), position=1, initial=self._global_step)
+                self._train_dl, desc='Train step', total=num_training_steps, position=1, initial=self._global_step)
 
-        while self._global_step < num_training_steps:
+        while True:
             for i_step, (token_ids, token_type_ids, lm_labels) in enumerate(self._train_dl):
                 train_loss = self._train_step(token_ids, token_type_ids, lm_labels)
 
@@ -147,6 +147,9 @@ class Trainer:
                     valid_loss = self._validate()
                     self._save_checkpoint()
                     self._write_tb_logs({'loss/valid': valid_loss})
+
+                if self._global_step >= num_training_steps:
+                    break
 
         dist.destroy_process_group()
 
