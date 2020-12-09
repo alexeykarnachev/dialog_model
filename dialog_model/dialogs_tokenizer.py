@@ -1,7 +1,7 @@
 from typing import Iterable, Sequence
 
 import numpy as np
-from more_itertools import flatten, chunked
+from more_itertools import flatten
 from transformers import GPT2TokenizerFast
 
 END_OF_SPEAKER_1_TOKEN = '[END_OF_SPEAKER_1]'
