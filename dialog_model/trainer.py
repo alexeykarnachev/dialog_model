@@ -63,6 +63,7 @@ class Trainer:
         self._valid_dl = None
         self._global_step = None
         self._samples_seen = None
+        self._writer = None
 
         checkpoint_dir = self._experiment_dir / 'checkpoint'
         checkpoint_dir.mkdir(exist_ok=True)
