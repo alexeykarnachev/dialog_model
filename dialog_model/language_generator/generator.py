@@ -11,7 +11,7 @@ from dialog_model.language_generator.logits_modifiers import IgnoredTokensModifi
 from dialog_model.language_generator.progress import GenerationProgressTracker
 
 
-class LanguageGenerator:
+class ResponseCandidatesGenerator:
     def __init__(self, model: GPT2LMHeadModel, tokenizer: DialogsTokenizer):
         self._model = model
         self._tokenizer = tokenizer
@@ -19,18 +19,25 @@ class LanguageGenerator:
     @torch.no_grad()
     def __call__(
             self,
-            dialog: Sequence[str],
-            num_return_sequences,
+            context: Sequence[str],
+            n_candidates,
+            max_n_context_tokens,
             repetition_penalty=3.0,
             temperature=0.73,
             top_k=100,
             top_p=1.0
     ):
-        self._model.eval()
+        if max_n_context_tokens >= self._tokenizer.max_n_tokens:
+            raise ValueError(
+                '`max_n_context_tokens` must be lower than `tokenizer.max_n_tokens`, '
+                'otherwise there are no tokens left for response.'
+            )
 
-        encoded_dialog = self._tokenizer.encode([dialog])[0]
-        max_number_of_generated_tokens = self._tokenizer.max_n_tokens - len(encoded_dialog)
-        encoded = [list(encoded_dialog) for _ in range(num_return_sequences)]
+        self._model.eval()
+        encoded_context = self._tokenizer.encode([context], strip_from_right=False)[0]
+        encoded_context = encoded_context[-max_n_context_tokens:]
+        max_number_of_generated_tokens = self._tokenizer.max_n_tokens - len(encoded_context)
+        encoded = [list(encoded_context) for _ in range(n_candidates)]
         collate_fn = Collate(
             pad_token_id=self._tokenizer.pad_token_id,
             end_of_speaker_1_token_id=self._tokenizer.end_of_speaker_1_token_id,
@@ -44,10 +51,10 @@ class LanguageGenerator:
 
         eos_token_ids = {self._tokenizer.end_of_speaker_1_token_id, self._tokenizer.end_of_speaker_2_token_id}
         progress = GenerationProgressTracker(eos_token_ids=eos_token_ids, max_length=max_number_of_generated_tokens)
-        not_eos_positions = [i for i, token_id in enumerate(encoded_dialog) if token_id not in eos_token_ids]
+        not_eos_positions = [i for i, token_id in enumerate(encoded_context) if token_id not in eos_token_ids]
 
         generated_token_ids = torch.zeros(
-            num_return_sequences, max_number_of_generated_tokens, dtype=torch.long, device=self._model.device)
+            n_candidates, max_number_of_generated_tokens, dtype=torch.long, device=self._model.device)
 
         past_token_ids = token_ids.detach().clone()
         past_token_ids = past_token_ids[:, not_eos_positions]

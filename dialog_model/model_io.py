@@ -1,10 +1,16 @@
 import re
+from pathlib import Path
 
-from transformers import GPT2LMHeadModel
+import torch
+from transformers import GPT2LMHeadModel, GPT2Config
 from transformers.modeling_gpt2 import GPT2LMHeadModel
 
+from dialog_model.dataset.serialization import load_tokenizer, TOKENIZER_PARAMS_FILE_NAME
+from dialog_model.language_generator.generator import ResponseCandidatesGenerator
+from dialog_model.trainer import CHECKPOINTS_DIR_NAME
 
-def get_pretrained_gpt2_with_lm_head(name_or_path, vocab_size=None, freeze_n_layers=None):
+
+def get_pretrained_gpt2_with_lm_head(name_or_path, vocab_size=None, freeze_n_layers=None) -> GPT2LMHeadModel:
     model = GPT2LMHeadModel.from_pretrained(name_or_path, output_hidden_states=True)
 
     if vocab_size is not None:
@@ -14,6 +20,29 @@ def get_pretrained_gpt2_with_lm_head(name_or_path, vocab_size=None, freeze_n_lay
         _freeze_layers(model=model, freeze_n_layers=freeze_n_layers)
 
     return model
+
+
+def load_model_from_checkpoint(checkpoint_file_path, device) -> GPT2LMHeadModel:
+    checkpoint = torch.load(f=checkpoint_file_path, map_location='cpu')
+    gpt2_config_dict = checkpoint['gpt2_config_dict']
+    model = GPT2LMHeadModel(config=GPT2Config(**gpt2_config_dict))
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model = model.to(device)
+    if device != 'cpu':
+        model = model.half()
+
+    return model
+
+
+def load_response_candidates_generator_from_experiment_dir(
+        experiment_dir, checkpoint_name, device
+) -> ResponseCandidatesGenerator:
+    tokenizer = load_tokenizer(Path(experiment_dir) / TOKENIZER_PARAMS_FILE_NAME)
+    checkpoint_file_path = experiment_dir / CHECKPOINTS_DIR_NAME / checkpoint_name
+    model = load_model_from_checkpoint(checkpoint_file_path, device=device)
+    generator = ResponseCandidatesGenerator(model=model, tokenizer=tokenizer)
+
+    return generator
 
 
 def _freeze_layers(model, freeze_n_layers: int):

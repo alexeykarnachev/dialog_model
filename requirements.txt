@@ -4,3 +4,5 @@ treelib==1.6.1
 transformers==3.5.1
 torch==1.7.0
 tensorboard==2.4.0
+fastapi==0.62.0
+uvicorn==0.13.0

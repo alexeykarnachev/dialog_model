@@ -6,12 +6,11 @@ from typing import Iterable, Sequence
 import numpy as np
 from more_itertools import chunked
 
-from dialog_model.raw_dialogs.pikabu_dialogs_iterator import PikabuDialogsIterator
 from dialog_model.dialogs_tokenizer import DialogsTokenizer
 
 _DATA_FILE_NAME = 'data.bin'
 _INDEX_FILE_NAME = 'data.idx'
-_TOKENIZER_PARAMS_FILE_NAME = 'tokenizer_params.json'
+TOKENIZER_PARAMS_FILE_NAME = 'tokenizer_params.json'
 _CODE_TO_DTYPE = {
     0: np.dtype('uint16'),
     1: np.dtype('int32')
@@ -67,9 +66,8 @@ def build_dataset(
     _write_tokenizer_params(out_dir, tokenizer_params=tokenizer_params)
 
 
-def load_tokenizer(dataset_dir) -> DialogsTokenizer:
-    dataset_dir = Path(dataset_dir)
-    with open(dataset_dir / _TOKENIZER_PARAMS_FILE_NAME) as file:
+def load_tokenizer(tokenizer_params_file_path) -> DialogsTokenizer:
+    with open(tokenizer_params_file_path) as file:
         tokenizer_params = json.load(file)
 
     tokenizer = DialogsTokenizer(**tokenizer_params)
@@ -113,7 +111,7 @@ def _write_data(out_dir, token_ids_iter: Iterable):
 
 
 def _write_tokenizer_params(out_dir, tokenizer_params):
-    with open(out_dir / _TOKENIZER_PARAMS_FILE_NAME, 'w') as file:
+    with open(out_dir / TOKENIZER_PARAMS_FILE_NAME, 'w') as file:
         json.dump(tokenizer_params, file, indent=2)
 
 
