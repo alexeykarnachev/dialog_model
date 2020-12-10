@@ -7,7 +7,8 @@ from transformers.modeling_gpt2 import GPT2LMHeadModel
 
 from dialog_model.dataset.serialization import load_tokenizer, TOKENIZER_PARAMS_FILE_NAME
 from dialog_model.language_generator.generator import ResponseCandidatesGenerator
-from dialog_model.trainer import CHECKPOINTS_DIR_NAME
+
+CHECKPOINTS_DIR_NAME = 'checkpoint'
 
 
 def get_pretrained_gpt2_with_lm_head(name_or_path, vocab_size=None, freeze_n_layers=None) -> GPT2LMHeadModel:

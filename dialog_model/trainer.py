@@ -18,10 +18,9 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 from dialog_model.dataset.serialization import load_tokenizer, TOKENIZER_PARAMS_FILE_NAME
 from dialog_model.dataset.serialized_dataset import get_dataloader
 from dialog_model.language_generator.generator import ResponseCandidatesGenerator
-from dialog_model.model_io import get_pretrained_gpt2_with_lm_head
+from dialog_model.model_io import get_pretrained_gpt2_with_lm_head, CHECKPOINTS_DIR_NAME
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
-CHECKPOINTS_DIR_NAME = 'checkpoint'
 
 
 class Trainer:
