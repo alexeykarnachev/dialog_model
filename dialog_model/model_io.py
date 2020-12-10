@@ -38,7 +38,8 @@ def load_model_from_checkpoint(checkpoint_file_path, device) -> GPT2LMHeadModel:
 def load_response_candidates_generator_from_experiment_dir(
         experiment_dir, checkpoint_name, device
 ) -> ResponseCandidatesGenerator:
-    tokenizer = load_tokenizer(Path(experiment_dir) / TOKENIZER_PARAMS_FILE_NAME)
+    experiment_dir = Path(experiment_dir)
+    tokenizer = load_tokenizer(experiment_dir / TOKENIZER_PARAMS_FILE_NAME)
     checkpoint_file_path = experiment_dir / CHECKPOINTS_DIR_NAME / checkpoint_name
     model = load_model_from_checkpoint(checkpoint_file_path, device=device)
     generator = ResponseCandidatesGenerator(model=model, tokenizer=tokenizer)
