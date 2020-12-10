@@ -239,7 +239,7 @@ class Trainer:
             with open(config_file_path) as file:
                 config = json.load(file)
                 generator_params = config['generator_params']
-                dialog = config['dialog']
+                context = config['context']
         else:
             generator_params = {
                 'n_candidates': 4,
@@ -257,8 +257,8 @@ class Trainer:
 
         try:
             generator = ResponseCandidatesGenerator(self._model.module, self._tokenizer)
-            candidates = generator(dialog=dialog, **generator_params)
-            payload = {'generator_params': generator_params, 'dialog': dialog, 'candidates': candidates}
+            candidates = generator(context=context, **generator_params)
+            payload = {'generator_params': generator_params, 'context': context, 'candidates': candidates}
         except:
             tb = traceback.format_exc()
             payload = {'exception': tb}
