@@ -25,8 +25,11 @@ def get_pretrained_gpt2_with_lm_head(name_or_path, vocab_size=None, freeze_n_lay
 
 def load_model_from_checkpoint(checkpoint_file_path, device) -> GPT2LMHeadModel:
     checkpoint = torch.load(f=checkpoint_file_path, map_location='cpu')
+    state_dict = checkpoint['model_state_dict']
     gpt2_config_dict = checkpoint['gpt2_config_dict']
     model = GPT2LMHeadModel(config=GPT2Config(**gpt2_config_dict))
+    vocab_size = state_dict['module.transformer.wte.weight'].size()[0]
+    _resize_embeddings(model=model, vocab_size=vocab_size)
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(device)
     if device != 'cpu':
