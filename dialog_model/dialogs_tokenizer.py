@@ -58,7 +58,7 @@ class DialogsTokenizer:
             if strip_from_right:
                 dialog_token_ids = dialog_token_ids[:self._max_n_tokens]
             else:
-                dialog_token_ids = dialog_token_ids[self._max_n_tokens:]
+                dialog_token_ids = dialog_token_ids[-self._max_n_tokens:]
             token_ids = np.array(dialog_token_ids, dtype=self._dtype)
             encoded.append(token_ids)
 
