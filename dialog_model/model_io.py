@@ -30,7 +30,7 @@ def load_model_from_checkpoint(checkpoint_file_path, device) -> GPT2LMHeadModel:
     model = GPT2LMHeadModel(config=GPT2Config(**gpt2_config_dict))
     vocab_size = state_dict['transformer.wte.weight'].size()[0]
     _resize_embeddings(model=model, vocab_size=vocab_size)
-    model.load_state_dict(checkpoint['model_state_dict'])
+    model.load_state_dict(state_dict)
     model = model.to(device)
     if device != 'cpu':
         model = model.half()
