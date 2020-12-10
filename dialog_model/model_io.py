@@ -3,8 +3,7 @@ from pathlib import Path
 
 import torch
 from transformers import GPT2LMHeadModel, GPT2Config
-from transformers.modeling_gpt2 import GPT2LMHeadModel
-
+import re
 from dialog_model.dataset.serialization import load_tokenizer, TOKENIZER_PARAMS_FILE_NAME
 from dialog_model.language_generator.generator import ResponseCandidatesGenerator
 
@@ -26,9 +25,10 @@ def get_pretrained_gpt2_with_lm_head(name_or_path, vocab_size=None, freeze_n_lay
 def load_model_from_checkpoint(checkpoint_file_path, device) -> GPT2LMHeadModel:
     checkpoint = torch.load(f=checkpoint_file_path, map_location='cpu')
     state_dict = checkpoint['model_state_dict']
+    state_dict = {re.sub('^module.', '', name): weights for name, weights in state_dict.items()}
     gpt2_config_dict = checkpoint['gpt2_config_dict']
     model = GPT2LMHeadModel(config=GPT2Config(**gpt2_config_dict))
-    vocab_size = state_dict['module.transformer.wte.weight'].size()[0]
+    vocab_size = state_dict['transformer.wte.weight'].size()[0]
     _resize_embeddings(model=model, vocab_size=vocab_size)
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(device)
