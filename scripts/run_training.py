@@ -16,6 +16,7 @@ def _parse_args():
     parser.add_argument('--experiments_root_dir', type=str, required=True)
     parser.add_argument('--dataset_dir', type=str, required=True)
     parser.add_argument('--gpt2_name_or_path', type=str, required=True)
+    parser.add_argument('--init_weights_from_checkpoint', type=str, required=False)
     parser.add_argument('--worker_batch_size', type=int, required=True)
     parser.add_argument('--data_shuffle_seed', type=int, required=False, default=228)
     parser.add_argument('--freeze_n_layers', type=int, required=True)
@@ -43,6 +44,7 @@ def main():
         train_dataset_dir=train_dataset_dir,
         valid_dataset_dir=valid_dataset_dir,
         gpt2_name_or_path=args.gpt2_name_or_path,
+        init_weights_from_checkpoint=args.init_weights_from_checkpoint,
         worker_batch_size=args.worker_batch_size,
         data_shuffle_seed=args.data_shuffle_seed,
         freeze_n_layers=args.freeze_n_layers,

@@ -33,6 +33,7 @@ class Trainer:
             train_dataset_dir,
             valid_dataset_dir,
             gpt2_name_or_path,
+            init_weights_from_checkpoint,
             worker_batch_size,
             data_shuffle_seed,
             freeze_n_layers,
@@ -45,6 +46,7 @@ class Trainer:
         self._train_dataset_dir = Path(train_dataset_dir)
         self._valid_dataset_dir = Path(valid_dataset_dir)
         self._gpt2_name_or_path = gpt2_name_or_path
+        self._init_weights_from_checkpoint = init_weights_from_checkpoint
         self._worker_batch_size = worker_batch_size
         self._data_shuffle_seed = data_shuffle_seed
         self._freeze_n_layers = freeze_n_layers
@@ -107,6 +109,10 @@ class Trainer:
         self._samples_seen = checkpoint['samples_seen']
         self._train_dl = self._get_dataloader(is_train=True, samples_offset=self._samples_seen)
 
+    def _load_only_weights_from_checkpoint(self):
+        checkpoint = torch.load(self._init_weights_from_checkpoint, map_location='cpu')
+        self._model.load_state_dict(checkpoint['model_state_dict'])
+
     def _train(self, rank):
         _seed_everything(self._data_shuffle_seed)
         self._setup_ddp(rank)
@@ -129,9 +135,10 @@ class Trainer:
 
         if self._checkpoint_file_path.is_file():
             self._load_checkpoint()
+        elif self._init_weights_from_checkpoint:
+            self._load_only_weights_from_checkpoint()
 
         while True:
-
             if self._rank == 0:
                 self._writer = self._writer or SummaryWriter(self._experiment_dir / 'tb_logs')
                 self._train_dl = tqdm.tqdm(
@@ -249,7 +256,7 @@ class Trainer:
                 'top_k': 100,
                 'top_p': 1.0
             }
-            context = ['Привет, как дела?', 'Нормально, сам как?', 'Я тоже хорошо. Расскажи о себе.']
+            context = ['Привет, как дела?', 'Нормально, сам как?', 'Я тоже хорошо. Какие планы на вечер?']
             config = {'generator_params': generator_params, 'context': context}
 
             with open(config_file_path, 'w') as file:
