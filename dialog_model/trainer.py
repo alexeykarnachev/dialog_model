@@ -89,7 +89,7 @@ class Trainer:
             'global_step': self._global_step,
             'samples_seen': self._samples_seen,
             'world_size': self._world_size,
-            'gpt2_config_dict': self._model.config.to_dict()
+            'gpt2_config_dict': self._model.module.config.to_dict()
         }
 
         torch.save(checkpoint, self._checkpoint_file_path)
