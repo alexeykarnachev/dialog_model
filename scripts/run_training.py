@@ -34,6 +34,10 @@ def main():
     experiment_hash = _calc_experiment_hash(args)
     experiment_dir = Path(args.experiments_root_dir) / experiment_hash
     experiment_dir.mkdir(exist_ok=True, parents=True)
+
+    with open(experiment_dir / 'args.json', 'w') as file:
+        json.dump(vars(args), file, indent=2)
+
     prepare_logging(experiment_dir / 'logs')
 
     train_dataset_dir = Path(args.dataset_dir) / 'train'
