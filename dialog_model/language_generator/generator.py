@@ -121,4 +121,4 @@ def _decode_candidates(tokenizer: DialogsTokenizer, generated_tokens, generated_
         token_ids = token_ids.detach().cpu().numpy().tolist()
         encoded.append(token_ids)
 
-    return tokenizer.decode(encoded)
+    return tokenizer.decode(encoded, skip_special_tokens=True)

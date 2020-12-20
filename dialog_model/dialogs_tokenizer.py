@@ -64,5 +64,5 @@ class DialogsTokenizer:
 
         return encoded
 
-    def decode(self, encoded):
-        return self._tokenizer.batch_decode(encoded)
+    def decode(self, encoded, skip_special_tokens):
+        return self._tokenizer.batch_decode(encoded, skip_special_tokens=skip_special_tokens)
