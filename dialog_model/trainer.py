@@ -3,6 +3,7 @@ import os
 import random
 import traceback
 from pathlib import Path
+from shutil import copyfile
 
 import numpy as np
 import torch
@@ -14,10 +15,10 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.tensorboard import SummaryWriter
 from transformers import AdamW, get_linear_schedule_with_warmup
 
-from dialog_model.dataset.serialization import load_tokenizer
+from dialog_model.dataset.serialization import load_tokenizer, TOKENIZER_PARAMS_FILE_NAME
 from dialog_model.dataset.serialized_dataset import get_dataloader
-from dialog_model.language_generator.generator import LanguageGenerator
-from dialog_model.model_io import get_pretrained_gpt2_with_lm_head
+from dialog_model.language_generator.generator import ResponseCandidatesGenerator
+from dialog_model.model_io import get_pretrained_gpt2_with_lm_head, CHECKPOINTS_DIR_NAME
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
@@ -32,6 +33,7 @@ class Trainer:
             train_dataset_dir,
             valid_dataset_dir,
             gpt2_name_or_path,
+            init_weights_from_checkpoint,
             worker_batch_size,
             data_shuffle_seed,
             freeze_n_layers,
@@ -41,9 +43,10 @@ class Trainer:
             warmup_ratio
     ):
         self._experiment_dir = Path(experiment_dir)
-        self._train_dataset_dir = train_dataset_dir
-        self._valid_dataset_dir = valid_dataset_dir
+        self._train_dataset_dir = Path(train_dataset_dir)
+        self._valid_dataset_dir = Path(valid_dataset_dir)
         self._gpt2_name_or_path = gpt2_name_or_path
+        self._init_weights_from_checkpoint = init_weights_from_checkpoint
         self._worker_batch_size = worker_batch_size
         self._data_shuffle_seed = data_shuffle_seed
         self._freeze_n_layers = freeze_n_layers
@@ -53,7 +56,7 @@ class Trainer:
         self._warmup_ratio = warmup_ratio
 
         self._world_size = torch.cuda.device_count()
-        self._tokenizer = load_tokenizer(dataset_dir=self._train_dataset_dir)
+        self._tokenizer = load_tokenizer(self._train_dataset_dir / TOKENIZER_PARAMS_FILE_NAME)
 
         self._optimizer = None
         self._scaler = None
@@ -65,13 +68,16 @@ class Trainer:
         self._samples_seen = None
         self._writer = None
 
-        checkpoint_dir = self._experiment_dir / 'checkpoint'
+        checkpoint_dir = self._experiment_dir / CHECKPOINTS_DIR_NAME
         checkpoint_dir.mkdir(exist_ok=True)
         self._checkpoint_file_path = checkpoint_dir / 'last.ckpt'
+        copyfile(
+            self._train_dataset_dir / TOKENIZER_PARAMS_FILE_NAME,
+            self._experiment_dir / TOKENIZER_PARAMS_FILE_NAME
+        )
 
     def run(self):
         get_pretrained_gpt2_with_lm_head(self._gpt2_name_or_path)
-        load_tokenizer(self._train_dataset_dir)
         mp.spawn(self._train, nprocs=self._world_size, join=True)
 
     def _save_checkpoint(self):
@@ -82,7 +88,8 @@ class Trainer:
             'scheduler_state_dict': self._scheduler.state_dict(),
             'global_step': self._global_step,
             'samples_seen': self._samples_seen,
-            'world_size': self._world_size
+            'world_size': self._world_size,
+            'gpt2_config_dict': self._model.module.config.to_dict()
         }
 
         torch.save(checkpoint, self._checkpoint_file_path)
@@ -101,6 +108,10 @@ class Trainer:
         self._global_step = checkpoint['global_step']
         self._samples_seen = checkpoint['samples_seen']
         self._train_dl = self._get_dataloader(is_train=True, samples_offset=self._samples_seen)
+
+    def _load_only_weights_from_checkpoint(self):
+        checkpoint = torch.load(self._init_weights_from_checkpoint, map_location='cpu')
+        self._model.load_state_dict(checkpoint['model_state_dict'])
 
     def _train(self, rank):
         _seed_everything(self._data_shuffle_seed)
@@ -124,9 +135,10 @@ class Trainer:
 
         if self._checkpoint_file_path.is_file():
             self._load_checkpoint()
+        elif self._init_weights_from_checkpoint:
+            self._load_only_weights_from_checkpoint()
 
         while True:
-
             if self._rank == 0:
                 self._writer = self._writer or SummaryWriter(self._experiment_dir / 'tb_logs')
                 self._train_dl = tqdm.tqdm(
@@ -234,25 +246,26 @@ class Trainer:
             with open(config_file_path) as file:
                 config = json.load(file)
                 generator_params = config['generator_params']
-                dialog = config['dialog']
+                context = config['context']
         else:
             generator_params = {
-                'num_return_sequences': 4,
+                'n_candidates': 4,
+                'max_n_context_tokens': 100,
                 'repetition_penalty': 3,
                 'temperature': 0.73,
                 'top_k': 100,
                 'top_p': 1.0
             }
-            dialog = ['Привет, как дела?', 'Нормально, сам как?', 'Я тоже хорошо. Расскажи о себе.']
-            config = {'generator_params': generator_params, 'dialog': dialog}
+            context = ['Привет, как дела?', 'Нормально, сам как?', 'Я тоже хорошо. Какие планы на вечер?']
+            config = {'generator_params': generator_params, 'context': context}
 
             with open(config_file_path, 'w') as file:
                 json.dump(config, file, indent=2, ensure_ascii=False)
 
         try:
-            generator = LanguageGenerator(self._model.module, self._tokenizer)
-            candidates = generator(dialog=dialog, **generator_params)
-            payload = {'generator_params': generator_params, 'dialog': dialog, 'candidates': candidates}
+            generator = ResponseCandidatesGenerator(self._model.module, self._tokenizer)
+            candidates = generator(context=context, **generator_params)
+            payload = {'generator_params': generator_params, 'context': context, 'candidates': candidates}
         except:
             tb = traceback.format_exc()
             payload = {'exception': tb}

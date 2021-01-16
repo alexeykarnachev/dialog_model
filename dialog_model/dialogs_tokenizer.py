@@ -40,7 +40,7 @@ class DialogsTokenizer:
     def max_n_tokens(self):
         return self._max_n_tokens
 
-    def encode(self, dialogs: Iterable[Sequence[str]]):
+    def encode(self, dialogs: Iterable[Sequence[str]], strip_from_right=True):
         dialogs_with_speaker_tokens = []
         for dialog in dialogs:
             dialogs_with_speaker_tokens.append([])
@@ -55,11 +55,14 @@ class DialogsTokenizer:
         encoded = []
         for dialog in dialogs_with_speaker_tokens:
             dialog_token_ids = list(flatten(utterance_to_ids[u] for u in dialog))
-            dialog_token_ids = dialog_token_ids[:self._max_n_tokens]
+            if strip_from_right:
+                dialog_token_ids = dialog_token_ids[:self._max_n_tokens]
+            else:
+                dialog_token_ids = dialog_token_ids[-self._max_n_tokens:]
             token_ids = np.array(dialog_token_ids, dtype=self._dtype)
             encoded.append(token_ids)
 
         return encoded
 
-    def decode(self, encoded):
-        return self._tokenizer.batch_decode(encoded)
+    def decode(self, encoded, skip_special_tokens):
+        return self._tokenizer.batch_decode(encoded, skip_special_tokens=skip_special_tokens)
