@@ -19,6 +19,7 @@ def _parse_args():
     parser.add_argument('--out_dir', type=str, required=True, help='Path to the out dir with train and valid sub-dirs.')
 
     args = parser.parse_args()
+
     return args
 
 
@@ -31,8 +32,7 @@ def main():
         build_dataset,
         tokenization_chunk_size=_TOKENIZATION_CHUNK_SIZE,
         tokenizer_name_or_path=args.tokenizer_name_or_path,
-        max_n_tokens=args.max_n_tokens
-    )
+        max_n_tokens=args.max_n_tokens)
 
     dialogs = PikabuDialogsIterator(args.file_path)
     valid_dialogs = islice(dialogs, args.n_valid_dialogs)
