@@ -10,15 +10,15 @@ import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import tqdm
-from torch.cuda.amp import autocast, GradScaler
+from torch.cuda.amp import GradScaler, autocast
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.tensorboard import SummaryWriter
 from transformers import AdamW, get_linear_schedule_with_warmup
 
-from dialog_model.dataset.serialization import load_tokenizer, TOKENIZER_PARAMS_FILE_NAME
+from dialog_model.dataset.serialization import TOKENIZER_PARAMS_FILE_NAME, load_tokenizer
 from dialog_model.dataset.serialized_dataset import get_dataloader
 from dialog_model.language_generator.generator import ResponseCandidatesGenerator
-from dialog_model.model_io import get_pretrained_gpt2_with_lm_head, CHECKPOINTS_DIR_NAME
+from dialog_model.model_io import CHECKPOINTS_DIR_NAME, get_pretrained_gpt2_with_lm_head
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
@@ -27,21 +27,9 @@ class Trainer:
     _MASTER_ADDR = 'localhost'
     _MASTER_PORT = '12355'
 
-    def __init__(
-            self,
-            experiment_dir,
-            train_dataset_dir,
-            valid_dataset_dir,
-            gpt2_name_or_path,
-            init_weights_from_checkpoint,
-            worker_batch_size,
-            data_shuffle_seed,
-            freeze_n_layers,
-            learning_rate,
-            n_epochs,
-            validate_each_n_steps,
-            warmup_ratio
-    ):
+    def __init__(self, experiment_dir, train_dataset_dir, valid_dataset_dir, gpt2_name_or_path,
+                 init_weights_from_checkpoint, worker_batch_size, data_shuffle_seed, freeze_n_layers, learning_rate,
+                 n_epochs, validate_each_n_steps, warmup_ratio):
         self._experiment_dir = Path(experiment_dir)
         self._train_dataset_dir = Path(train_dataset_dir)
         self._valid_dataset_dir = Path(valid_dataset_dir)
@@ -71,10 +59,8 @@ class Trainer:
         checkpoint_dir = self._experiment_dir / CHECKPOINTS_DIR_NAME
         checkpoint_dir.mkdir(exist_ok=True)
         self._checkpoint_file_path = checkpoint_dir / 'last.ckpt'
-        copyfile(
-            self._train_dataset_dir / TOKENIZER_PARAMS_FILE_NAME,
-            self._experiment_dir / TOKENIZER_PARAMS_FILE_NAME
-        )
+        copyfile(self._train_dataset_dir / TOKENIZER_PARAMS_FILE_NAME,
+                 self._experiment_dir / TOKENIZER_PARAMS_FILE_NAME)
 
     def run(self):
         get_pretrained_gpt2_with_lm_head(self._gpt2_name_or_path)
@@ -151,7 +137,8 @@ class Trainer:
                     self._train_dl.set_postfix({
                         'loss/train': train_loss,
                         'samples_seen': self._samples_seen,
-                        'epoch': self._global_step / steps_per_epoch})
+                        'epoch': self._global_step / steps_per_epoch
+                    })
                     self._write_tb_logs({'loss/train': train_loss})
                     self._write_tb_logs({'learning-rate': self._optimizer.param_groups[0]['lr']})
                     self._write_tb_logs({'max_seq_len': token_ids.size()[1]})
@@ -199,9 +186,7 @@ class Trainer:
 
     def _get_model(self, rank):
         model = get_pretrained_gpt2_with_lm_head(
-            self._gpt2_name_or_path,
-            vocab_size=self._tokenizer.vocab_size,
-            freeze_n_layers=self._freeze_n_layers)
+            self._gpt2_name_or_path, vocab_size=self._tokenizer.vocab_size, freeze_n_layers=self._freeze_n_layers)
         model = model.to(rank)
         model = DistributedDataParallel(model, device_ids=[rank])
 
@@ -218,8 +203,7 @@ class Trainer:
             is_distributed=is_train,
             pad_token_id=self._tokenizer.pad_token_id,
             end_of_speaker_1_token_id=self._tokenizer.end_of_speaker_1_token_id,
-            end_of_speaker_2_token_id=self._tokenizer.end_of_speaker_2_token_id
-        )
+            end_of_speaker_2_token_id=self._tokenizer.end_of_speaker_2_token_id)
 
     @torch.no_grad()
     def _validate(self):

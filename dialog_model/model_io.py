@@ -2,9 +2,9 @@ import re
 from pathlib import Path
 
 import torch
-from transformers import GPT2LMHeadModel, GPT2Config
-import re
-from dialog_model.dataset.serialization import load_tokenizer, TOKENIZER_PARAMS_FILE_NAME
+from transformers import GPT2Config, GPT2LMHeadModel
+
+from dialog_model.dataset.serialization import TOKENIZER_PARAMS_FILE_NAME, load_tokenizer
 from dialog_model.language_generator.generator import ResponseCandidatesGenerator
 
 CHECKPOINTS_DIR_NAME = 'checkpoint'
@@ -36,9 +36,8 @@ def load_model_from_checkpoint(checkpoint_file_path, device) -> GPT2LMHeadModel:
     return model
 
 
-def load_response_candidates_generator_from_experiment_dir(
-        experiment_dir, checkpoint_name, device
-) -> ResponseCandidatesGenerator:
+def load_response_candidates_generator_from_experiment_dir(experiment_dir, checkpoint_name,
+                                                           device) -> ResponseCandidatesGenerator:
     experiment_dir = Path(experiment_dir)
     tokenizer = load_tokenizer(experiment_dir / TOKENIZER_PARAMS_FILE_NAME)
     checkpoint_file_path = experiment_dir / CHECKPOINTS_DIR_NAME / checkpoint_name
@@ -67,9 +66,8 @@ def _resize_embeddings(model, vocab_size: int):
     n_new = vocab_size - old_size
 
     if n_new < 0:
-        raise ValueError(
-            f"Can't resize embeddings: new vocab size ({vocab_size}) can not be less than the "
-            f"old embeddings number ({old_size}).")
+        raise ValueError(f"Can't resize embeddings: new vocab size ({vocab_size}) can not be less than the "
+                         f"old embeddings number ({old_size}).")
 
     model.resize_token_embeddings(vocab_size)
     idx = vocab_size - n_new
