@@ -1,11 +1,16 @@
 import argparse
 import json
+import logging
 import random
 from collections import defaultdict
 
 import aiohttp
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
+
+from log_config import prepare_logging
+
+_logger = logging.getLogger(__name__)
 
 
 class App:
@@ -61,9 +66,18 @@ class App:
                     response = await response.json()
                     response_candidates = response['response_candidates']
                     selected_response_candidate = self._select_response_candidate(response_candidates)
-                    return selected_response_candidate
             except aiohttp.ServerDisconnectedError:
-                return None
+                selected_response_candidate = None
+
+        log = {
+            'context': context,
+            'response_candidates': response_candidates,
+            'selected_response_candidate': selected_response_candidate
+        }
+        log = json.dumps(log, indent=2, ensure_ascii=False)
+        _logger.info(log)
+
+        return selected_response_candidate
 
     @staticmethod
     def _select_response_candidate(response_candidates):
@@ -105,6 +119,7 @@ def _parse_args():
 
     parser.add_argument('--telegram_api_token', type=str, required=True)
     parser.add_argument('--response_candidates_url', type=str, required=True)
+    parser.add_argument('--logs_dir', type=str, required=True)
     parser.add_argument('--max_n_context_messages', type=int, required=False, default=12)
 
     args = parser.parse_args()
@@ -113,6 +128,7 @@ def _parse_args():
 
 def main():
     args = _parse_args()
+    prepare_logging(logs_dir=args.logs_dir)
     app = App(
         telegram_api_token=args.telegram_api_token,
         response_candidates_url=args.response_candidates_url,
