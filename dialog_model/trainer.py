@@ -2,6 +2,7 @@ import json
 import os
 import random
 import traceback
+
 from pathlib import Path
 from shutil import copyfile
 
@@ -10,6 +11,7 @@ import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import tqdm
+
 from torch.cuda.amp import GradScaler, autocast
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.tensorboard import SummaryWriter
@@ -144,7 +146,6 @@ class Trainer:
                     self._write_tb_logs({'max_seq_len': token_ids.size()[1]})
 
                 if self._rank == 0 and self._global_step % self._validate_each_n_steps == 0:
-                    self._generate()
                     valid_loss = self._validate()
                     self._save_checkpoint()
                     self._write_tb_logs({'loss/valid': valid_loss})
@@ -219,45 +220,6 @@ class Trainer:
         loss /= len(valid_dl)
 
         return loss
-
-    def _generate(self):
-        out_dir = self._experiment_dir / 'generated'
-        out_dir.mkdir(exist_ok=True, parents=False)
-        config_file_path = out_dir / 'config.json'
-        generated_file_path = out_dir / 'generated.jsonl'
-
-        if config_file_path.is_file():
-            with open(config_file_path) as file:
-                config = json.load(file)
-                generator_params = config['generator_params']
-                context = config['context']
-        else:
-            generator_params = {
-                'n_candidates': 4,
-                'max_n_context_tokens': 100,
-                'repetition_penalty': 3,
-                'temperature': 0.73,
-                'top_k': 100,
-                'top_p': 1.0
-            }
-            context = ['Привет, как дела?', 'Нормально, сам как?', 'Я тоже хорошо. Какие планы на вечер?']
-            config = {'generator_params': generator_params, 'context': context}
-
-            with open(config_file_path, 'w') as file:
-                json.dump(config, file, indent=2, ensure_ascii=False)
-
-        try:
-            generator = ResponseCandidatesGenerator(self._model.module, self._tokenizer)
-            candidates = generator(context=context, **generator_params)
-            payload = {'generator_params': generator_params, 'context': context, 'candidates': candidates}
-        except:
-            tb = traceback.format_exc()
-            payload = {'exception': tb}
-
-        with open(generated_file_path, 'a') as file:
-            payload = json.dumps(payload, ensure_ascii=False, indent=2)
-            file.write(payload)
-            file.write('\n')
 
 
 def _seed_everything(seed):

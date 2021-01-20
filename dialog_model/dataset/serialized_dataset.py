@@ -2,10 +2,11 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
+
+from torch.utils.data import DataLoader, Dataset
 
 from dialog_model.dataset.length_sort_sampler import LengthSortSampler
-from dialog_model.dataset.serialization import read_index, open_data_file
+from dialog_model.dataset.serialization import open_data_file, read_index
 
 
 class SerializedDataset(Dataset):
@@ -36,18 +37,8 @@ class SerializedDataset(Dataset):
         return token_ids
 
 
-def get_dataloader(
-        dataset_dir,
-        batch_size,
-        num_workers,
-        sort_chunk_size,
-        samples_offset,
-        data_shuffle_seed,
-        is_distributed,
-        pad_token_id,
-        end_of_speaker_1_token_id,
-        end_of_speaker_2_token_id
-):
+def get_dataloader(dataset_dir, batch_size, num_workers, sort_chunk_size, samples_offset, data_shuffle_seed,
+                   is_distributed, pad_token_id, end_of_speaker_1_token_id, end_of_speaker_2_token_id):
     dataset = SerializedDataset(dataset_dir)
 
     sampler = LengthSortSampler(
@@ -55,14 +46,12 @@ def get_dataloader(
         sort_chunk_size=sort_chunk_size,
         samples_offset=samples_offset,
         data_shuffle_seed=data_shuffle_seed,
-        is_distributed=is_distributed
-    )
+        is_distributed=is_distributed)
 
     collate = Collate(
         pad_token_id=pad_token_id,
         end_of_speaker_1_token_id=end_of_speaker_1_token_id,
-        end_of_speaker_2_token_id=end_of_speaker_2_token_id
-    )
+        end_of_speaker_2_token_id=end_of_speaker_2_token_id)
 
     dataloader = DataLoader(
         dataset=dataset, batch_size=batch_size, sampler=sampler, num_workers=num_workers, collate_fn=collate)
@@ -90,7 +79,7 @@ class Collate:
         for i, sample in enumerate(samples):
             sample = np.array(sample)
             token_ids[i, :len(sample)] = sample
-            lm_labels[i, :len(sample)] = sample
+            lm_labels[i, :len(sample)] = self._construct_lm_labels(sample)
             token_type_ids[i, :len(sample)] = self._construct_token_type_ids(sample)
 
         token_ids = torch.tensor(token_ids, dtype=torch.long)
@@ -123,3 +112,12 @@ class Collate:
             prev_speaker = current_speaker
 
         return token_type_ids
+
+    def _construct_lm_labels(self, token_ids):
+        mask = (token_ids == self._end_of_speaker_1_token_id) | (token_ids == self._end_of_speaker_2_token_id)
+        # Cast to int32 from uint16 to add lm loss ignore label (which equals -100):
+        lm_labels = token_ids.copy().astype(np.int32) 
+        first_end_of_speaker_index = mask.argmax()
+        lm_labels[:first_end_of_speaker_index + 1] = self._LM_LOSS_IGNORE_LABEL
+
+        return lm_labels

@@ -1,9 +1,11 @@
 import json
 import struct
+
 from pathlib import Path
 from typing import Iterable, Sequence
 
 import numpy as np
+
 from more_itertools import chunked
 
 from dialog_model.dialogs_tokenizer import DialogsTokenizer
@@ -11,10 +13,7 @@ from dialog_model.dialogs_tokenizer import DialogsTokenizer
 _DATA_FILE_NAME = 'data.bin'
 _INDEX_FILE_NAME = 'data.idx'
 TOKENIZER_PARAMS_FILE_NAME = 'tokenizer_params.json'
-_CODE_TO_DTYPE = {
-    0: np.dtype('uint16'),
-    1: np.dtype('int32')
-}
+_CODE_TO_DTYPE = {0: np.dtype('uint16'), 1: np.dtype('int32')}
 _DTYPE_TO_CODE = {v: k for k, v in _CODE_TO_DTYPE.items()}
 
 
@@ -46,13 +45,7 @@ def read_number_of_samples(dataset_dir):
     return n_samples
 
 
-def build_dataset(
-        dialogs,
-        out_dir,
-        tokenization_chunk_size,
-        tokenizer_name_or_path,
-        max_n_tokens
-):
+def build_dataset(dialogs, out_dir, tokenization_chunk_size, tokenizer_name_or_path, max_n_tokens):
     out_dir = Path(out_dir)
     out_dir.mkdir(exist_ok=True, parents=True)
 
@@ -127,4 +120,4 @@ def _write_array(file, arr, dtype):
 
 def _iterate_on_token_ids(dialogs: Iterable[Sequence[str]], tokenizer: DialogsTokenizer, tokenization_chunk_size):
     for dialogs_chunk in chunked(dialogs, n=tokenization_chunk_size):
-        yield from tokenizer.encode(dialogs_chunk)
+        yield from tokenizer.encode_for_training(dialogs_chunk)

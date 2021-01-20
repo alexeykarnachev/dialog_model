@@ -1,13 +1,14 @@
 import argparse
+
 from functools import partial
-from itertools import islice, chain
+from itertools import chain, islice
 from pathlib import Path
 
 from dialog_model.dataset.serialization import build_dataset
 from dialog_model.raw_dialogs.flibusta_dialogs_iterator import FlibustaDialogsIterator
 from dialog_model.raw_dialogs.pikabu_dialogs_iterator import PikabuDialogsIterator
 
-_TOKENIZATION_CHUNK_SIZE = 10000
+_TOKENIZATION_CHUNK_SIZE = 5000
 
 
 def _parse_args():
