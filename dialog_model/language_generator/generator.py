@@ -2,12 +2,13 @@ from typing import Sequence
 
 import torch
 import torch.nn.functional
+
 from transformers import GPT2LMHeadModel
 
 from dialog_model.dataset.serialized_dataset import Collate
 from dialog_model.dialogs_tokenizer import DialogsTokenizer
-from dialog_model.language_generator.logits_modifiers import IgnoredTokensModifier, RepetitiveTokensModifier, \
-    TemperatureModifier, TopKNucleusModifier
+from dialog_model.language_generator.logits_modifiers import IgnoredTokensModifier, \
+    RepetitiveTokensModifier, TemperatureModifier, TopKNucleusModifier
 from dialog_model.language_generator.progress import GenerationProgressTracker
 
 
@@ -17,21 +18,17 @@ class ResponseCandidatesGenerator:
         self._tokenizer = tokenizer
 
     @torch.no_grad()
-    def __call__(
-            self,
-            context: Sequence[str],
-            n_candidates,
-            max_n_context_tokens,
-            repetition_penalty=3.0,
-            temperature=0.73,
-            top_k=100,
-            top_p=1.0
-    ):
+    def __call__(self,
+                 context: Sequence[str],
+                 n_candidates,
+                 max_n_context_tokens,
+                 repetition_penalty=3.0,
+                 temperature=0.73,
+                 top_k=100,
+                 top_p=1.0):
         if max_n_context_tokens >= self._tokenizer.max_n_tokens:
-            raise ValueError(
-                '`max_n_context_tokens` must be lower than `tokenizer.max_n_tokens`, '
-                'otherwise there are no tokens left for response.'
-            )
+            raise ValueError('`max_n_context_tokens` must be lower than `tokenizer.max_n_tokens`, '
+                             'otherwise there are no tokens left for response.')
 
         self._model.eval()
         encoded_context = self._tokenizer.encode([context], strip_from_right=False)[0]
@@ -42,8 +39,7 @@ class ResponseCandidatesGenerator:
             pad_token_id=self._tokenizer.pad_token_id,
             end_of_speaker_1_token_id=self._tokenizer.end_of_speaker_1_token_id,
             end_of_speaker_2_token_id=self._tokenizer.end_of_speaker_2_token_id,
-            device=self._model.device
-        )
+            device=self._model.device)
 
         token_ids, token_type_ids, _ = collate_fn(encoded)
         new_token_type_ids = token_type_ids[:, -1:]
@@ -71,8 +67,7 @@ class ResponseCandidatesGenerator:
                 repetition_penalty=repetition_penalty,
                 temperature=temperature,
                 top_k=top_k,
-                top_p=top_p
-            )
+                top_p=top_p)
             next_token_ids = _sample_next_token_ids(next_token_logits)
             progress.update(next_token_ids)
             generated_token_ids[:, progress.current_length - 1] = next_token_ids
@@ -83,21 +78,13 @@ class ResponseCandidatesGenerator:
         candidates = _decode_candidates(
             tokenizer=self._tokenizer,
             generated_tokens=generated_token_ids,
-            generated_sample_lengths=progress.generated_sample_lengths
-        )
+            generated_sample_lengths=progress.generated_sample_lengths)
 
         return candidates
 
 
-def _modify_next_token_logits(
-        next_token_logits,
-        ignored_token_ids,
-        token_ids_to_penalize,
-        repetition_penalty,
-        temperature,
-        top_k,
-        top_p
-):
+def _modify_next_token_logits(next_token_logits, ignored_token_ids, token_ids_to_penalize, repetition_penalty,
+                              temperature, top_k, top_p):
     modifiers = [
         IgnoredTokensModifier(ignored_token_ids=ignored_token_ids),
         RepetitiveTokensModifier(penalty=repetition_penalty, token_ids_to_penalize=token_ids_to_penalize),

@@ -1,20 +1,14 @@
 from itertools import chain
 
 import numpy as np
+
 from more_itertools import chunked
 from torch.distributed import get_rank, get_world_size
 from torch.utils.data import Sampler
 
 
 class LengthSortSampler(Sampler):
-    def __init__(
-            self,
-            lengths,
-            sort_chunk_size,
-            samples_offset=0,
-            data_shuffle_seed=42,
-            is_distributed=True
-    ):
+    def __init__(self, lengths, sort_chunk_size, samples_offset=0, data_shuffle_seed=42, is_distributed=True):
         super().__init__(None)
 
         self._full_len = len(lengths)

@@ -1,7 +1,9 @@
 import re
+
 from pathlib import Path
 
 import torch
+
 from transformers import GPT2Config, GPT2LMHeadModel
 
 from dialog_model.dataset.serialization import TOKENIZER_PARAMS_FILE_NAME, load_tokenizer

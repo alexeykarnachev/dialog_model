@@ -1,7 +1,9 @@
 import abc
-from typing import Sequence, Optional
+
+from typing import Optional, Sequence
 
 import torch
+
 from transformers import top_k_top_p_filtering
 
 _MINUS_INF = -float("Inf")
@@ -71,20 +73,14 @@ class TopKNucleusModifier(NextTokenLogitsModifier):
 
     def _check_arguments_validity(self) -> None:
         if self._top_k < 0:
-            raise NextTokenLogitsModifierError(
-                '`top_k` must be >= 0. Use `top_k` = 0 if you want to switch '
-                'off the top-k filtering.')
+            raise NextTokenLogitsModifierError('`top_k` must be >= 0. Use `top_k` = 0 if you want to switch '
+                                               'off the top-k filtering.')
         elif not (0 <= self._top_p <= 1):
-            raise NextTokenLogitsModifierError(
-                '`top_p` must be between 0 and 1.')
+            raise NextTokenLogitsModifierError('`top_p` must be between 0 and 1.')
 
     def modify(self, logits: torch.tensor):
         """Delegates call to the transformers `top_k_top_p_filtering` func."""
-        top_k_top_p_filtering(
-            logits=logits,
-            top_k=self._top_k,
-            top_p=self._top_p,
-            filter_value=_MINUS_INF)
+        top_k_top_p_filtering(logits=logits, top_k=self._top_k, top_p=self._top_p, filter_value=_MINUS_INF)
 
 
 class IgnoredTokensModifier(NextTokenLogitsModifier):
@@ -106,11 +102,7 @@ class IgnoredTokensModifier(NextTokenLogitsModifier):
 class RepetitiveTokensModifier(NextTokenLogitsModifier):
     """Decreases probability (and logits) for tokens which have already been."""
 
-    def __init__(
-            self,
-            penalty: float,
-            token_ids_to_penalize: torch.tensor
-    ):
+    def __init__(self, penalty: float, token_ids_to_penalize: torch.tensor):
         """
         Args:
             penalty:
@@ -127,9 +119,8 @@ class RepetitiveTokensModifier(NextTokenLogitsModifier):
 
     def _check_arguments_validity(self) -> None:
         if self._penalty < 1.0:
-            raise NextTokenLogitsModifierError(
-                "`penalty` must be >= 1.0. Use 1.0 if you don't want to apply "
-                "repetition penalty.")
+            raise NextTokenLogitsModifierError("`penalty` must be >= 1.0. Use 1.0 if you don't want to apply "
+                                               "repetition penalty.")
 
     def modify(self, logits: torch.tensor):
         for i in range(logits.size()[0]):

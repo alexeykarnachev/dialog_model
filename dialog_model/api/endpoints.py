@@ -1,4 +1,5 @@
 import re
+
 from typing import List
 
 from fastapi import FastAPI
@@ -36,8 +37,7 @@ class EndpointsRegister:
                 repetition_penalty=params.repetition_penalty,
                 temperature=params.temperature,
                 top_k=params.top_k,
-                top_p=params.top_p
-            )
+                top_p=params.top_p)
 
             return ResponseCandidates(response_candidates=candidates)
 

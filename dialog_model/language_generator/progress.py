@@ -85,8 +85,7 @@ class GenerationProgressTracker:
 
     def _assert_update_is_possible(self):
         if self.finished:
-            raise GenerationProgressTrackerError(
-                "Can't update generation progress, because it's already finished.")
+            raise GenerationProgressTrackerError("Can't update generation progress, because it's already finished.")
 
     def _initialize_if_needed(self, next_tokens):
         if self._n_samples is None:

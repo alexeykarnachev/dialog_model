@@ -4,9 +4,10 @@ from functools import partial
 from itertools import chain, islice
 from pathlib import Path
 
+from dialogs_data_parsers.flibusta.dialogs_iterator import FlibustaDialogsIterator
+from dialogs_data_parsers.pikabu.dialogs_iterator import PikabuDialogsIterator
+
 from dialog_model.dataset.serialization import build_dataset
-from dialog_model.raw_dialogs.flibusta_dialogs_iterator import FlibustaDialogsIterator
-from dialog_model.raw_dialogs.pikabu_dialogs_iterator import PikabuDialogsIterator
 
 _TOKENIZATION_CHUNK_SIZE = 5000
 

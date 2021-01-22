@@ -1,7 +1,5 @@
-import json
 import os
 import random
-import traceback
 
 from pathlib import Path
 from shutil import copyfile
@@ -19,7 +17,6 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 
 from dialog_model.dataset.serialization import TOKENIZER_PARAMS_FILE_NAME, load_tokenizer
 from dialog_model.dataset.serialized_dataset import get_dataloader
-from dialog_model.language_generator.generator import ResponseCandidatesGenerator
 from dialog_model.model_io import CHECKPOINTS_DIR_NAME, get_pretrained_gpt2_with_lm_head
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'

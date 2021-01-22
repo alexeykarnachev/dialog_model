@@ -1,6 +1,7 @@
 import argparse
 import hashlib
 import json
+
 from pathlib import Path
 
 from dialog_model.log_config import prepare_logging

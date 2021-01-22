@@ -2,12 +2,13 @@ import argparse
 import json
 import logging
 import random
+
 from collections import defaultdict
 
 import aiohttp
+
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
-
 from log_config import prepare_logging
 
 _logger = logging.getLogger(__name__)
@@ -47,8 +48,11 @@ class App:
             user_id = _get_user_id_from_message(message)
 
             self._contexts_cache.add_message_text(message_text=message.text, user_id=user_id)
+
             context = self._contexts_cache.get_context(user_id)
             dialog_model_response = await self._get_dialog_model_response(context)
+
+            self._contexts_cache.add_message_text(message_text=dialog_model_response, user_id=user_id)
 
             await message.answer(dialog_model_response)
 

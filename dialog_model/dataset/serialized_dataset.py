@@ -116,7 +116,7 @@ class Collate:
     def _construct_lm_labels(self, token_ids):
         mask = (token_ids == self._end_of_speaker_1_token_id) | (token_ids == self._end_of_speaker_2_token_id)
         # Cast to int32 from uint16 to add lm loss ignore label (which equals -100):
-        lm_labels = token_ids.copy().astype(np.int32) 
+        lm_labels = token_ids.copy().astype(np.int32)
         first_end_of_speaker_index = mask.argmax()
         lm_labels[:first_end_of_speaker_index + 1] = self._LM_LOSS_IGNORE_LABEL
 
