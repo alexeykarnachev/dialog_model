@@ -70,3 +70,6 @@ class DialogsTokenizer:
     def encode_utterance(self, utterance):
         encoded_utterance = self._tokenizer.encode(utterance, add_special_tokens=False)
         return encoded_utterance
+
+    def decode(self, token_ids):
+        return self._tokenizer.decode(token_ids)

@@ -1,21 +1,19 @@
-from pathlib import Path
-
 import numpy as np
 import torch
-
 from torch.utils.data import DataLoader, Dataset
 
-from dialog_model.dataset.length_sort_sampler import LengthSortSampler
-from dialog_model.dataset.serialization import open_data_file, read_index
+from dialog_model.dataset.serializer import open_data_file, read_dtype, read_lengths, read_offsets
 
 
 class SerializedDataset(Dataset):
     def __init__(self, dataset_dir):
-        self._dataset_dir = Path(dataset_dir)
+        self._dataset_dir = dataset_dir
 
         self._data_file = None
 
-        self._offsets, self._lengths, self._dtype = read_index(dataset_dir)
+        self._offsets = read_offsets(self._dataset_dir)
+        self._lengths = read_lengths(self._dataset_dir)
+        self._dtype = read_dtype(self._dataset_dir)
 
     @property
     def lengths(self):
@@ -121,3 +119,17 @@ class Collate:
         lm_labels[:first_end_of_speaker_index + 1] = self._LM_LOSS_IGNORE_LABEL
 
         return lm_labels
+
+
+if __name__ == '__main__':
+    from dialog_model.dataset.serializer import load_tokenizer
+    from collections import Counter
+
+    dataset_dir = '/tmp'
+    t = load_tokenizer(dataset_dir)
+    d = SerializedDataset(dataset_dir)
+    s = []
+    for i in range(len(d)):
+        s.append(t.decode(d[i]))
+ 
+    print(len(s), len(set(s)))
