@@ -48,7 +48,7 @@ class DialogsDatasetSerializer:
         self._log_progress_each_n_dialogs = self._LOG_PROGRESS_EACH_N_DIALOGS - (
             self._LOG_PROGRESS_EACH_N_DIALOGS % n_workers)
         self._tokenizer = DialogsTokenizer(
-                self._tokenizer_name_or_path, max_n_tokens=self._max_n_tokens, max_n_utterances=self._max_n_utterances)
+            self._tokenizer_name_or_path, max_n_tokens=self._max_n_tokens, max_n_utterances=self._max_n_utterances)
 
     def run(self):
         self._write_initial_offset()
@@ -198,21 +198,3 @@ def _read_array(file_path, n_elements, dtype):
     file.readinto(array)
 
     return array
-
-
-if __name__ == '__main__':
-    from dialogs_data_parsers.flibusta.dialogs_iterator import FlibustaDialogsIterator
-    import shutil
-
-    dialogs = FlibustaDialogsIterator('/tmp.jsonl', verbose=False)
-    dir_ = Path('/tmp')
-    if dir_.exists():
-        shutil.rmtree(dir_)
-    d = DialogsDatasetSerializer(
-        dialogs,
-        out_serialized_dataset_dir=dir_,
-        tokenizer_name_or_path='sberbank-ai/rugpt3large_based_on_gpt2',
-        n_workers=24,
-        max_n_tokens=120,
-        max_n_utterances=10)
-    d.run()

@@ -120,20 +120,3 @@ class Collate:
         lm_labels[:first_end_of_speaker_index + 1] = self._LM_LOSS_IGNORE_LABEL
 
         return lm_labels
-
-
-if __name__ == '__main__':
-    from dialog_model.dataset.serializer import load_tokenizer
-    from collections import Counter
-
-    dataset_dir = '/tmp'
-    t = load_tokenizer(dataset_dir)
-    d = SerializedDataset(dataset_dir)
-    s = []
-    for i in range(len(d)):
-        s_ = t.decode(d[i])
-        assert d._lengths[i] == len(d[i])
-        s.append(s_)
-        print(s_)
-
-    print(len(s), len(set(s)))
