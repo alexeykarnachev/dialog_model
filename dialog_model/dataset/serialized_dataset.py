@@ -3,6 +3,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 from dialog_model.dataset.serializer import open_data_file, read_dtype, read_lengths, read_offsets
+from py_utils.torch_utils.length_sort_sampler import LengthSortSampler
 
 
 class SerializedDataset(Dataset):
@@ -130,6 +131,9 @@ if __name__ == '__main__':
     d = SerializedDataset(dataset_dir)
     s = []
     for i in range(len(d)):
-        s.append(t.decode(d[i]))
- 
+        s_ = t.decode(d[i])
+        assert d._lengths[i] == len(d[i])
+        s.append(s_)
+        print(s_)
+
     print(len(s), len(set(s)))
