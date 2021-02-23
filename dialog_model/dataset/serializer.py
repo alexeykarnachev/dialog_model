@@ -3,16 +3,14 @@ Module for raw jsonl tokenization and serialization into binary dataset on disk.
 """
 from itertools import cycle
 import json
-import logging
 from multiprocessing import Manager, Process
 from pathlib import Path
 import struct
-import numpy as np
+
 from more_itertools import chunked
+import numpy as np
 
 from dialog_model.dialogs_tokenizer import DialogsTokenizer
-
-_logger = logging.getLogger(__name__)
 
 _CODE_TO_DTYPE = {0: np.dtype('uint16'), 1: np.dtype('int32')}
 _DTYPE_TO_CODE = {v: k for k, v in _CODE_TO_DTYPE.items()}
@@ -35,7 +33,8 @@ class DialogsDatasetSerializer:
         self._out_serialized_dataset_dir.mkdir(exist_ok=False, parents=True)
         self._data_file_path = self._out_serialized_dataset_dir / 'data.bin'
         self._offsets_file_path = self._out_serialized_dataset_dir / 'offsets.bin'
-        self._lengths_file_path = self._out_serialized_dataset_dir / 'lengths.bin'
+        self._sample_lengths_file_path = self._out_serialized_dataset_dir / 'sample_lengths.bin'
+        self._response_lengths_file_path = self._out_serialized_dataset_dir / 'response_lengths.bin'
         self._meta_file_path = self._out_serialized_dataset_dir / 'meta.json'
         self._tokenizer_params_file_path = self._out_serialized_dataset_dir / 'tokenizer_params.json'
 
@@ -78,7 +77,7 @@ class DialogsDatasetSerializer:
             if worker_id == 0 and total_dialogs_done % self._log_progress_each_n_dialogs == 0:
                 print(f'Dialogs done: {total_dialogs_done}')
 
-            yield from self._tokenizer.iterate_on_encoded_subdialogs(dialog)
+            yield from self._tokenizer.iterate_on_encoded_subdialogs(dialog, skip_incomplete=True)
 
     def _iterate_on_worker_dialogs(self, worker_id):
         if worker_id >= self._n_workers:
@@ -99,12 +98,15 @@ class DialogsDatasetSerializer:
     def _write_encoded_dialogs(self, encoded_dialogs):
         with self._lock:
             prev_offset = self._prev_offset.value
-            data_file = open(self._data_file_path, 'ab')
-            offsets_file = open(self._offsets_file_path, 'ab')
-            lengths_file = open(self._lengths_file_path, 'ab')
             dtype_code = self._dtype_code.value
 
+            data_file = open(self._data_file_path, 'ab')
+            offsets_file = open(self._offsets_file_path, 'ab')
+            sample_lengths_file = open(self._sample_lengths_file_path, 'ab')
+            response_lengths_file = open(self._response_lengths_file_path, 'ab')
+
             for encoded_dialog in encoded_dialogs:
+                assert encoded_dialog[-1] == self._tokenizer.end_of_speaker_2_token_id
 
                 dtype = encoded_dialog.dtype
                 if dtype_code == -1:
@@ -115,13 +117,18 @@ class DialogsDatasetSerializer:
 
                 n_bytes = data_file.write(encoded_dialog)
                 offset = int(prev_offset + n_bytes / encoded_dialog.dtype.itemsize)
+                sample_length = len(encoded_dialog)
+                response_length = get_response_length(encoded_dialog, self._tokenizer.end_of_speaker_1_token_id)
+
                 offsets_file.write(struct.pack("<Q", offset))
-                lengths_file.write(struct.pack("<H", len(encoded_dialog)))
+                sample_lengths_file.write(struct.pack("<H", sample_length))
+                response_lengths_file.write(struct.pack("<H", response_length))
                 prev_offset = offset
 
             data_file.close()
             offsets_file.close()
-            lengths_file.close()
+            sample_lengths_file.close()
+            response_lengths_file.close()
 
             self._n_samples.value += len(encoded_dialogs)
             self._prev_offset.value = prev_offset
@@ -148,14 +155,26 @@ class DialogsDatasetSerializer:
             offsets_file.write(struct.pack("<Q", 0))
 
 
+def get_response_length(encoded_dialog, end_of_speaker_1_token_id):
+    response_length = (encoded_dialog == end_of_speaker_1_token_id)[::-1].argmax()
+    assert response_length
+    return response_length
+
+
 def read_offsets(dataset_dir):
     file_path = Path(dataset_dir) / 'offsets.bin'
 
     return _read_array(file_path, _read_n_samples(dataset_dir) + 1, np.uint64)
 
 
-def read_lengths(dataset_dir):
-    file_path = Path(dataset_dir) / 'lengths.bin'
+def read_sample_lengths(dataset_dir):
+    file_path = Path(dataset_dir) / 'sample_lengths.bin'
+
+    return _read_array(file_path, _read_n_samples(dataset_dir), np.uint16)
+
+
+def read_response_lengths(dataset_dir):
+    file_path = Path(dataset_dir) / 'response_lengths.bin'
 
     return _read_array(file_path, _read_n_samples(dataset_dir), np.uint16)
 
