@@ -57,15 +57,15 @@ class DialogsTokenizer:
                     continue
 
             encoded_subdialog_utterances = encoded_subdialog_utterances[-self._max_n_utterances:]
-            end_of_speaker_token_ids = (self.end_of_speaker_1_token_id, self.end_of_speaker_2_token_id)
+            end_of_speaker_input_ids = (self.end_of_speaker_1_token_id, self.end_of_speaker_2_token_id)
             if len(encoded_subdialog_utterances) % 2 == 0:
-                end_of_speaker_token_ids_cycle = cycle(end_of_speaker_token_ids)
+                end_of_speaker_input_ids_cycle = cycle(end_of_speaker_input_ids)
             else:
-                end_of_speaker_token_ids_cycle = cycle(reversed(end_of_speaker_token_ids))
+                end_of_speaker_input_ids_cycle = cycle(reversed(end_of_speaker_input_ids))
 
             encoded_subdialog = []
             utterance_lengths = []
-            for end_of_speaker_token_id, encoded_subdialog_utterance in zip(end_of_speaker_token_ids_cycle,
+            for end_of_speaker_token_id, encoded_subdialog_utterance in zip(end_of_speaker_input_ids_cycle,
                                                                             encoded_subdialog_utterances):
                 encoded_subdialog.extend(encoded_subdialog_utterance)
                 encoded_subdialog.append(end_of_speaker_token_id)
@@ -80,5 +80,5 @@ class DialogsTokenizer:
         encoded_utterance = self._tokenizer.encode(utterance, add_special_tokens=False)
         return encoded_utterance
 
-    def decode(self, token_ids):
-        return self._tokenizer.decode(token_ids)
+    def decode(self, input_ids):
+        return self._tokenizer.decode(input_ids)

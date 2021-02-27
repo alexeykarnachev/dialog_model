@@ -1,19 +1,17 @@
+from pathlib import Path
 import re
 
-from pathlib import Path
-
 import torch
-
 from transformers import GPT2Config, GPT2LMHeadModel
 
-from dialog_model.dataset.serialization import TOKENIZER_PARAMS_FILE_NAME, load_tokenizer
+from dialog_model.dataset.serializer import load_tokenizer
 from dialog_model.language_generator.generator import ResponseCandidatesGenerator
 
 CHECKPOINTS_DIR_NAME = 'checkpoint'
 
 
-def get_pretrained_gpt2_with_lm_head(name_or_path, vocab_size=None, freeze_n_layers=None) -> GPT2LMHeadModel:
-    model = GPT2LMHeadModel.from_pretrained(name_or_path, output_hidden_states=True)
+def get_pretrained_gpt2_with_lm_head(gpt2_name_or_path, vocab_size=None, freeze_n_layers=None) -> GPT2LMHeadModel:
+    model = GPT2LMHeadModel.from_pretrained(gpt2_name_or_path, output_hidden_states=True)
 
     if vocab_size is not None:
         _resize_embeddings(model=model, vocab_size=vocab_size)
@@ -41,7 +39,7 @@ def load_model_from_checkpoint(checkpoint_file_path, device) -> GPT2LMHeadModel:
 def load_response_candidates_generator_from_experiment_dir(experiment_dir, checkpoint_name,
                                                            device) -> ResponseCandidatesGenerator:
     experiment_dir = Path(experiment_dir)
-    tokenizer = load_tokenizer(experiment_dir / TOKENIZER_PARAMS_FILE_NAME)
+    tokenizer = load_tokenizer(experiment_dir)
     checkpoint_file_path = experiment_dir / CHECKPOINTS_DIR_NAME / checkpoint_name
     model = load_model_from_checkpoint(checkpoint_file_path, device=device)
     generator = ResponseCandidatesGenerator(model=model, tokenizer=tokenizer)

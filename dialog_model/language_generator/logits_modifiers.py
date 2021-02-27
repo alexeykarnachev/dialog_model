@@ -86,34 +86,34 @@ class TopKNucleusModifier(NextTokenLogitsModifier):
 class IgnoredTokensModifier(NextTokenLogitsModifier):
     """Assigns zero probabilities logits to the ignored tokens."""
 
-    def __init__(self, ignored_token_ids: Optional[Sequence[int]]):
+    def __init__(self, ignored_input_ids: Optional[Sequence[int]]):
         """
         Args:
-            ignored_token_ids:
+            ignored_input_ids:
                 Ignored token indexes sequence.
         """
-        self._ignored_token_ids = list(set(ignored_token_ids))
+        self._ignored_input_ids = list(set(ignored_input_ids))
 
     def modify(self, logits: torch.tensor):
-        if self._ignored_token_ids:
-            logits[:, self._ignored_token_ids] = _MINUS_INF
+        if self._ignored_input_ids:
+            logits[:, self._ignored_input_ids] = _MINUS_INF
 
 
 class RepetitiveTokensModifier(NextTokenLogitsModifier):
     """Decreases probability (and logits) for tokens which have already been."""
 
-    def __init__(self, penalty: float, token_ids_to_penalize: torch.tensor):
+    def __init__(self, penalty: float, input_ids_to_penalize: torch.tensor):
         """
         Args:
             penalty:
                 Repetitive tokens penalization strength (must be >= 1.0).
                 1.0 means no penalty.
-            token_ids_to_penalize:
+            input_ids_to_penalize:
                 Tensor with shape (batch_size, seq_len).
         Raises:
             NextTokenLogitsModifierError: in case of incorrect input arguments.
         """
-        self._token_ids_to_penalize = token_ids_to_penalize
+        self._input_ids_to_penalize = input_ids_to_penalize
         self._penalty = penalty
         self._check_arguments_validity()
 
@@ -124,7 +124,7 @@ class RepetitiveTokensModifier(NextTokenLogitsModifier):
 
     def modify(self, logits: torch.tensor):
         for i in range(logits.size()[0]):
-            ids_to_penalize = self._token_ids_to_penalize[i]
+            ids_to_penalize = self._input_ids_to_penalize[i]
             _penalize_logits_tensor(logits[i], ids_to_penalize, self._penalty)
 
 

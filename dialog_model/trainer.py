@@ -1,22 +1,21 @@
+import json
 import os
-import random
-
 from pathlib import Path
-from shutil import copyfile
+import random
 
 import numpy as np
 import torch
+from torch.cuda.amp import GradScaler, autocast
 import torch.distributed as dist
 import torch.multiprocessing as mp
-import tqdm
-
-from torch.cuda.amp import GradScaler, autocast
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.tensorboard import SummaryWriter
+import tqdm
 from transformers import AdamW, get_linear_schedule_with_warmup
 
-from dialog_model.dataset.serialization import TOKENIZER_PARAMS_FILE_NAME, load_tokenizer
 from dialog_model.dataset.serialized_dataset import get_dataloader
+from dialog_model.dataset.serializer import load_tokenizer, read_meta
+from dialog_model.model import DialogModel
 from dialog_model.model_io import CHECKPOINTS_DIR_NAME, get_pretrained_gpt2_with_lm_head
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
@@ -43,7 +42,7 @@ class Trainer:
         self._warmup_ratio = warmup_ratio
 
         self._world_size = torch.cuda.device_count()
-        self._tokenizer = load_tokenizer(self._train_dataset_dir / TOKENIZER_PARAMS_FILE_NAME)
+        self._tokenizer = load_tokenizer(self._train_dataset_dir)
 
         self._optimizer = None
         self._scaler = None
@@ -58,8 +57,9 @@ class Trainer:
         checkpoint_dir = self._experiment_dir / CHECKPOINTS_DIR_NAME
         checkpoint_dir.mkdir(exist_ok=True)
         self._checkpoint_file_path = checkpoint_dir / 'last.ckpt'
-        copyfile(self._train_dataset_dir / TOKENIZER_PARAMS_FILE_NAME,
-                 self._experiment_dir / TOKENIZER_PARAMS_FILE_NAME)
+        dataset_meta = read_meta(train_dataset_dir)
+        with open(self._experiment_dir / 'meta.json', 'w') as file:
+            json.dump(dataset_meta, file, indent=2)
 
     def run(self):
         get_pretrained_gpt2_with_lm_head(self._gpt2_name_or_path)
@@ -74,7 +74,7 @@ class Trainer:
             'global_step': self._global_step,
             'samples_seen': self._samples_seen,
             'world_size': self._world_size,
-            'gpt2_config_dict': self._model.module.config.to_dict()
+            'gpt2_config_dict': self._model.module.gpt2.config.to_dict()
         }
 
         torch.save(checkpoint, self._checkpoint_file_path)
@@ -115,8 +115,9 @@ class Trainer:
         steps_per_epoch = len(self._train_dl)
         num_training_steps = steps_per_epoch * self._n_epochs
         num_warmup_steps = self._warmup_ratio * num_training_steps
-        self._scheduler = get_linear_schedule_with_warmup(
-            optimizer=self._optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps)
+        self._scheduler = get_linear_schedule_with_warmup(optimizer=self._optimizer,
+                                                          num_warmup_steps=num_warmup_steps,
+                                                          num_training_steps=num_training_steps)
 
         if self._checkpoint_file_path.is_file():
             self._load_checkpoint()
@@ -126,21 +127,23 @@ class Trainer:
         while True:
             if self._rank == 0:
                 self._writer = self._writer or SummaryWriter(self._experiment_dir / 'tb_logs')
-                self._train_dl = tqdm.tqdm(
-                    self._train_dl, desc='Train step', total=num_training_steps, position=1, initial=self._global_step)
+                self._train_dl = tqdm.tqdm(self._train_dl,
+                                           desc='Train step',
+                                           total=num_training_steps,
+                                           position=1,
+                                           initial=self._global_step)
 
-            for i_step, (token_ids, token_type_ids, lm_labels) in enumerate(self._train_dl):
-                train_loss = self._train_step(token_ids, token_type_ids, lm_labels)
+            for i_step, model_input in enumerate(self._train_dl):
+                train_losses_dict = self._train_step(model_input)
 
                 if rank == 0:
                     self._train_dl.set_postfix({
-                        'loss/train': train_loss,
                         'samples_seen': self._samples_seen,
                         'epoch': self._global_step / steps_per_epoch
                     })
-                    self._write_tb_logs({'loss/train': train_loss})
+                    self._write_tb_logs(train_losses_dict)
                     self._write_tb_logs({'learning-rate': self._optimizer.param_groups[0]['lr']})
-                    self._write_tb_logs({'max_seq_len': token_ids.size()[1]})
+                    self._write_tb_logs({'max_seq_len': model_input.input_ids.size()[1]})
 
                 if self._rank == 0 and self._global_step % self._validate_each_n_steps == 0:
                     valid_loss = self._validate()
@@ -156,26 +159,39 @@ class Trainer:
         for tag, val in values_dict.items():
             self._writer.add_scalar(tag=tag, scalar_value=val, global_step=self._global_step)
 
-    def _train_step(self, token_ids, token_type_ids, lm_labels):
+    def _train_step(self, model_input):
         self._model.train()
         self._optimizer.zero_grad()
 
         with autocast():
-            loss, *_ = self._model(token_ids, token_type_ids=token_type_ids, labels=lm_labels)
+            model_output = self._model(model_input)
+
+        loss = model_output.loss
+        lm_loss = model_output.lm_loss
+        cls_loss = model_output.cls_loss
 
         self._scaler.scale(loss).backward()
         self._scaler.step(self._optimizer)
         self._scaler.update()
-        dist.all_reduce(loss)
-        loss = loss.item() / self._world_size
 
-        samples_seen = torch.tensor(len(token_ids), device=self._rank)
+        dist.all_reduce(loss)
+        dist.all_reduce(lm_loss)
+        dist.all_reduce(cls_loss)
+
+        loss = loss.item() / self._world_size
+        lm_loss = lm_loss.item() / self._world_size
+        cls_loss = cls_loss.item() / self._world_size
+
+        samples_seen = torch.tensor(len(model_input.input_ids), device=self._rank)
         dist.all_reduce(samples_seen)
+
         self._samples_seen += samples_seen.item()
         self._global_step += 1
         self._scheduler.step()
 
-        return loss
+        losses_dict = {'loss/train': loss, 'lm_loss/train': lm_loss, 'cls_loss/train': cls_loss}
+
+        return losses_dict
 
     def _setup_ddp(self, rank):
         os.environ['MASTER_ADDR'] = 'localhost'
@@ -183,25 +199,28 @@ class Trainer:
         dist.init_process_group("nccl", rank=rank, world_size=self._world_size)
 
     def _get_model(self, rank):
-        model = get_pretrained_gpt2_with_lm_head(
-            self._gpt2_name_or_path, vocab_size=self._tokenizer.vocab_size, freeze_n_layers=self._freeze_n_layers)
+        model = DialogModel(gpt2_name_or_path=self._gpt2_name_or_path,
+                            vocab_size=self._tokenizer.vocab_size,
+                            n_classes=2,
+                            end_of_speaker_2_token_id=self._tokenizer.end_of_speaker_2_token_id,
+                            cls_loss_weight=0.25)
         model = model.to(rank)
         model = DistributedDataParallel(model, device_ids=[rank])
 
         return model
 
     def _get_dataloader(self, is_train, samples_offset):
-        return get_dataloader(
-            dataset_dir=self._train_dataset_dir if is_train else self._valid_dataset_dir,
-            batch_size=self._worker_batch_size,
-            num_workers=4,
-            sort_chunk_size=self._worker_batch_size * 10,
-            samples_offset=samples_offset,
-            data_shuffle_seed=self._data_shuffle_seed,
-            is_distributed=is_train,
-            pad_token_id=self._tokenizer.pad_token_id,
-            end_of_speaker_1_token_id=self._tokenizer.end_of_speaker_1_token_id,
-            end_of_speaker_2_token_id=self._tokenizer.end_of_speaker_2_token_id)
+        return get_dataloader(dataset_dir=self._train_dataset_dir if is_train else self._valid_dataset_dir,
+                              distractor_p=0.5,
+                              batch_size=self._worker_batch_size,
+                              num_workers=4,
+                              sort_chunk_size=self._worker_batch_size * 10,
+                              samples_offset=samples_offset,
+                              data_shuffle_seed=self._data_shuffle_seed,
+                              is_distributed=is_train,
+                              pad_token_id=self._tokenizer.pad_token_id,
+                              end_of_speaker_1_token_id=self._tokenizer.end_of_speaker_1_token_id,
+                              end_of_speaker_2_token_id=self._tokenizer.end_of_speaker_2_token_id)
 
     @torch.no_grad()
     def _validate(self):
@@ -209,9 +228,10 @@ class Trainer:
 
         loss = 0
         valid_dl = tqdm.tqdm(self._valid_dl, desc='Valid step', total=len(self._valid_dl), position=2)
-        for token_ids, token_type_ids, lm_labels in valid_dl:
+        for model_input in valid_dl:
             with autocast():
-                loss_on_step, *_ = self._model(token_ids, token_type_ids=token_type_ids, labels=lm_labels)
+                model_output = self._model(model_input)
+                loss_on_step = model_output.loss
                 loss += loss_on_step.item()
 
         loss /= len(valid_dl)

@@ -6,6 +6,7 @@ from py_utils.torch_utils.length_sort_sampler import LengthSortSampler
 import torch
 from torch.utils.data import DataLoader, Dataset
 
+from dialog_model.data_structures import ModelInput
 from dialog_model.dataset.serializer import get_response_length, open_data_file, \
     read_dtype, read_offsets, read_response_lengths, read_sample_lengths
 
@@ -41,35 +42,35 @@ class SerializedDataset(Dataset):
         return len(self._sample_lengths)
 
     def __getitem__(self, i):
-        token_ids = self._get_token_ids(i)
-        length_before_distraction = len(token_ids)
+        input_ids = self._get_input_ids(i)
+        length_before_distraction = len(input_ids)
 
         if self._distractor_p > random.random():
-            token_ids = self._distract_token_ids(token_ids)
+            input_ids = self._distract_input_ids(input_ids)
             is_distracted = 1
 
-            length_after_distraction = len(token_ids)
+            length_after_distraction = len(input_ids)
             assert length_after_distraction <= length_before_distraction
         else:
             is_distracted = 0
 
-        return token_ids, is_distracted
+        return input_ids, is_distracted
 
-    def _get_token_ids(self, i):
+    def _get_input_ids(self, i):
         self._data_file = self._data_file or open_data_file(self._dataset_dir)
 
         offset = self._offsets[i]
         sample_length = self._sample_lengths[i]
 
-        token_ids = np.empty(sample_length, dtype=self._dtype)
+        input_ids = np.empty(sample_length, dtype=self._dtype)
         self._data_file.seek(int(offset * self._dtype.itemsize))
-        self._data_file.readinto(token_ids)
+        self._data_file.readinto(input_ids)
 
-        return token_ids
+        return input_ids
 
-    def _distract_token_ids(self, token_ids):
-        response_length = get_response_length(token_ids, self._end_of_speaker_1_token_id)
-        context_length = len(token_ids) - response_length
+    def _distract_input_ids(self, input_ids):
+        response_length = get_response_length(input_ids, self._end_of_speaker_1_token_id)
+        context_length = len(input_ids) - response_length
 
         # Find the same length or shorter response:
         number_of_same_or_shorter_responses = self._response_length_to_cumcount[response_length]
@@ -78,19 +79,19 @@ class SerializedDataset(Dataset):
         selected_distractor_ind = random.randint(0, max_distractor_ind)
         selected_distractor_ind = self._argsort_of_response_lengths[selected_distractor_ind]
 
-        source_of_distractor_token_ids = self._get_token_ids(selected_distractor_ind)
+        source_of_distractor_input_ids = self._get_input_ids(selected_distractor_ind)
 
         # Get distractor response:
-        distractor_response_length = get_response_length(source_of_distractor_token_ids,
+        distractor_response_length = get_response_length(source_of_distractor_input_ids,
                                                          self._end_of_speaker_1_token_id)
-        distractor_response_token_ids = source_of_distractor_token_ids[-distractor_response_length:]
+        distractor_response_input_ids = source_of_distractor_input_ids[-distractor_response_length:]
 
         # Construct new token ids with distracted response:
-        distracted_token_ids = np.zeros(context_length + distractor_response_length, dtype=token_ids.dtype)
-        distracted_token_ids[:context_length] = token_ids[:context_length]
-        distracted_token_ids[context_length:] = distractor_response_token_ids
+        distracted_input_ids = np.zeros(context_length + distractor_response_length, dtype=input_ids.dtype)
+        distracted_input_ids[:context_length] = input_ids[:context_length]
+        distracted_input_ids[context_length:] = distractor_response_input_ids
 
-        return distracted_token_ids
+        return distracted_input_ids
 
 
 def get_dataloader(dataset_dir, distractor_p, batch_size, num_workers, sort_chunk_size, samples_offset,
@@ -131,36 +132,37 @@ class Collate:
     def __call__(self, items):
         samples, labels = zip(*items)
         max_len = max(len(sample) for sample in samples)
-        token_ids = np.empty((len(samples), max_len))
-        token_type_ids = np.zeros_like(token_ids)
-        lm_labels = np.empty_like(token_ids)
-        token_ids.fill(self._pad_token_id)
+        input_ids = np.empty((len(samples), max_len))
+        token_type_ids = np.zeros_like(input_ids)
+        lm_labels = np.empty_like(input_ids)
+        input_ids.fill(self._pad_token_id)
         lm_labels.fill(self._LM_LOSS_IGNORE_LABEL)
 
         for i, (is_sample_distracted, sample) in enumerate(zip(labels, samples)):
             sample = np.array(sample)
-            token_ids[i, :len(sample)] = sample
+            input_ids[i, :len(sample)] = sample
             lm_labels[i, :len(sample)] = self._construct_lm_labels(sample, is_sample_distracted)
             token_type_ids[i, :len(sample)] = self._construct_token_type_ids(sample)
 
-        token_ids = torch.tensor(token_ids, dtype=torch.long)
+        input_ids = torch.tensor(input_ids, dtype=torch.long)
         lm_labels = torch.tensor(lm_labels, dtype=torch.long)
         token_type_ids = torch.tensor(token_type_ids, dtype=torch.long)
         labels = torch.tensor(labels, dtype=torch.long)
 
         if self._device is not None:
-            token_ids = token_ids.to(self._device)
+            input_ids = input_ids.to(self._device)
             labels = labels.to(self._device)
             token_type_ids = token_type_ids.to(self._device)
             lm_labels = lm_labels.to(self._device) if lm_labels is not None else lm_labels
 
-        return token_ids, labels, token_type_ids, lm_labels
+        model_input = ModelInput(input_ids=input_ids, labels=labels, token_type_ids=token_type_ids, lm_labels=lm_labels)
+        return model_input
 
-    def _construct_token_type_ids(self, token_ids):
-        token_type_ids = np.zeros_like(token_ids, dtype=token_ids.dtype)
+    def _construct_token_type_ids(self, input_ids):
+        token_type_ids = np.zeros_like(input_ids, dtype=input_ids.dtype)
         current_speaker = None
         prev_speaker = None
-        for i, token_id in enumerate(token_ids[::-1]):
+        for i, token_id in enumerate(input_ids[::-1]):
             if token_id == self._end_of_speaker_1_token_id:
                 current_speaker = 0
             elif token_id == self._end_of_speaker_2_token_id:
@@ -176,12 +178,12 @@ class Collate:
 
         return token_type_ids
 
-    def _construct_lm_labels(self, token_ids, is_sample_distracted):
-        lm_labels = token_ids.copy().astype(np.int32)
+    def _construct_lm_labels(self, input_ids, is_sample_distracted):
+        lm_labels = input_ids.copy().astype(np.int32)
         if is_sample_distracted:
             lm_labels[:] = self._LM_LOSS_IGNORE_LABEL
         else:
-            last_speaker_2_message_beginning_pos = -(token_ids == self._end_of_speaker_1_token_id)[::-1].argmax()
+            last_speaker_2_message_beginning_pos = -(input_ids == self._end_of_speaker_1_token_id)[::-1].argmax()
             lm_labels[:last_speaker_2_message_beginning_pos] = self._LM_LOSS_IGNORE_LABEL
 
         return lm_labels
@@ -209,7 +211,7 @@ if __name__ == '__main__':
 #                                 distractor_p=0.5,
 #                                 end_of_speaker_1_token_id=t.end_of_speaker_1_token_id)
 #
-#     for token_ids, is_distracted in dataset:
+#     for input_ids, is_distracted in dataset:
 #         if is_distracted:
-#             print(t.decode(token_ids))
+#             print(t.decode(input_ids))
 #

@@ -44,16 +44,16 @@ class GenerationProgressTracker:
     def generated_sample_lengths(self):
         return self._gen_lengths
 
-    def __init__(self, eos_token_ids: Iterable[int], max_length: int):
+    def __init__(self, eos_input_ids: Iterable[int], max_length: int):
         """
         Args:
-            eos_token_ids:
+            eos_input_ids:
                 End of string token ids. It's needed for GeneratorProgress to
                 understand which sample is finished.
             max_length:
                 Maximum length of the generated sequences.
         """
-        self._eos_token_ids = eos_token_ids
+        self._eos_input_ids = eos_input_ids
         self._max_length = max_length
         self.current_length = 0
 
@@ -66,17 +66,17 @@ class GenerationProgressTracker:
     def _check_arguments_validity(self) -> None:
         if self._max_length < 1:
             raise GenerationProgressTrackerError("`max_length` must be >= 1.")
-        elif min(self._eos_token_ids) < 0:
-            raise GenerationProgressTrackerError("`eos_token_ids` must be >= 0.")
+        elif min(self._eos_input_ids) < 0:
+            raise GenerationProgressTrackerError("`eos_input_ids` must be >= 0.")
 
-    def update(self, next_token_ids) -> None:
+    def update(self, next_input_ids) -> None:
         """Updates generation progress status."""
         self._assert_update_is_possible()
-        self._initialize_if_needed(next_token_ids)
+        self._initialize_if_needed(next_input_ids)
 
-        not_eos_tokens_mask = torch.ones_like(next_token_ids).bool()
-        for eos_token_id in self._eos_token_ids:
-            not_eos_tokens_mask &= next_token_ids.ne(eos_token_id).bool()
+        not_eos_tokens_mask = torch.ones_like(next_input_ids).bool()
+        for eos_token_id in self._eos_input_ids:
+            not_eos_tokens_mask &= next_input_ids.ne(eos_token_id).bool()
 
         self._gen_lengths[self._unfinished_mask] += 1
 

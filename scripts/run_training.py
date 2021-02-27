@@ -1,7 +1,6 @@
 import argparse
 import hashlib
 import json
-
 from pathlib import Path
 
 from dialog_model.log_config import prepare_logging
@@ -44,19 +43,18 @@ def main():
     train_dataset_dir = Path(args.dataset_dir) / 'train'
     valid_dataset_dir = Path(args.dataset_dir) / 'valid'
 
-    trainer = Trainer(
-        experiment_dir=experiment_dir,
-        train_dataset_dir=train_dataset_dir,
-        valid_dataset_dir=valid_dataset_dir,
-        gpt2_name_or_path=args.gpt2_name_or_path,
-        init_weights_from_checkpoint=args.init_weights_from_checkpoint,
-        worker_batch_size=args.worker_batch_size,
-        data_shuffle_seed=args.data_shuffle_seed,
-        freeze_n_layers=args.freeze_n_layers,
-        learning_rate=args.learning_rate,
-        n_epochs=args.n_epochs,
-        validate_each_n_steps=args.validate_each_n_steps,
-        warmup_ratio=args.warmup_ratio)
+    trainer = Trainer(experiment_dir=experiment_dir,
+                      train_dataset_dir=train_dataset_dir,
+                      valid_dataset_dir=valid_dataset_dir,
+                      gpt2_name_or_path=args.gpt2_name_or_path,
+                      init_weights_from_checkpoint=args.init_weights_from_checkpoint,
+                      worker_batch_size=args.worker_batch_size,
+                      data_shuffle_seed=args.data_shuffle_seed,
+                      freeze_n_layers=args.freeze_n_layers,
+                      learning_rate=args.learning_rate,
+                      n_epochs=args.n_epochs,
+                      validate_each_n_steps=args.validate_each_n_steps,
+                      warmup_ratio=args.warmup_ratio)
 
     trainer.run()
 
@@ -68,7 +66,7 @@ def _calc_experiment_hash(args):
         hash_values.append(args_dict[hash_arg])
 
     for data_dir in Path(args.dataset_dir).iterdir():
-        for file_name in ('data.bin', 'data.idx'):
+        for file_name in ('data.bin', ):
             file_path = Path(data_dir) / file_name
             hash_values.append(get_file_md5_checksum(file_path))
 

@@ -1,27 +1,22 @@
-from collections import namedtuple
-
 import torch
 import torch.nn as nn
-from transformers import GPT2LMHeadModel
 
-# input_ids - token ids of the input dialog sequence (including end-of-speaker separators)
-# labels - some classification labels (for example, is-distractor labels)
-# token_type_ids - 0 or 1, depending on current speaker
-# lm_labels - input ids, where -100 placed on positions to be ignored by lm
-ModelInput = namedtuple('ModelInput', ('input_ids', 'labels', 'token_type_ids', 'lm_labels'))
-
-# lm_loss - loss from GPT-2 language model
-# cls_loss - classification loss, calculated via classification on last end-of-speaker-2 tokens
-ModelOutput = namedtuple('ModelOutput', ('lm_loss', 'cls_loss'))
+from dialog_model.data_structures import ModelOutput
+from dialog_model.model_io import get_pretrained_gpt2_with_lm_head
 
 
 class DialogModel(nn.Module):
-    def __init__(self, gpt2_name_or_path, n_classes, end_of_speaker_2_token_id):
+    def __init__(self, gpt2_name_or_path, vocab_size, n_classes, end_of_speaker_2_token_id, cls_loss_weight):
         super().__init__()
-        self._gpt2 = GPT2LMHeadModel.from_pretrained(gpt2_name_or_path)
+        self._gpt2 = get_pretrained_gpt2_with_lm_head(gpt2_name_or_path, vocab_size=vocab_size)
         self._hidden_size = self._gpt2.config.hidden_size
         self._classifier = nn.Linear(self._hidden_size, n_classes)
         self._end_of_speaker_2_token_id = end_of_speaker_2_token_id
+        self._cls_loss_weight = cls_loss_weight
+
+    @property
+    def gpt2(self):
+        return self._gpt2
 
     def forward(self, model_input):
         gpt2_output = self._gpt2(input_ids=model_input.input_ids,
@@ -29,12 +24,15 @@ class DialogModel(nn.Module):
                                  labels=model_input.lm_labels,
                                  return_dict=True,
                                  output_hidden_states=True)
-
+        lm_loss = gpt2_output.loss
         cls_token_vectors = self._extract_cls_token_vectors(model_input.input_ids, gpt2_output.hidden_states)
         cls_logits = self._classifier(cls_token_vectors)
         cls_loss = nn.CrossEntropyLoss()(cls_logits, model_input.labels)
 
-        model_output = ModelOutput(lm_loss=gpt2_output.loss, cls_loss=cls_loss)
+        loss = cls_loss * self._cls_loss_weight + lm_loss
+
+        model_output = ModelOutput(lm_loss=lm_loss, cls_loss=cls_loss, loss=loss)
+
         return model_output
 
     def _extract_cls_token_vectors(self, input_ids, hidden_states):
