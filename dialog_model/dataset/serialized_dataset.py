@@ -96,23 +96,25 @@ class SerializedDataset(Dataset):
 def get_dataloader(dataset_dir, distractor_p, batch_size, num_workers, sort_chunk_size, samples_offset,
                    data_shuffle_seed, is_distributed, pad_token_id, end_of_speaker_1_token_id,
                    end_of_speaker_2_token_id):
-    dataset = SerializedDataset(
-        dataset_dir=dataset_dir, distractor_p=distractor_p, end_of_speaker_1_token_id=end_of_speaker_1_token_id)
+    dataset = SerializedDataset(dataset_dir=dataset_dir,
+                                distractor_p=distractor_p,
+                                end_of_speaker_1_token_id=end_of_speaker_1_token_id)
 
-    sampler = LengthSortSampler(
-        lengths=dataset.sample_lengths,
-        sort_chunk_size=sort_chunk_size,
-        samples_offset=samples_offset,
-        data_shuffle_seed=data_shuffle_seed,
-        is_distributed=is_distributed)
+    sampler = LengthSortSampler(lengths=dataset.sample_lengths,
+                                sort_chunk_size=sort_chunk_size,
+                                samples_offset=samples_offset,
+                                data_shuffle_seed=data_shuffle_seed,
+                                is_distributed=is_distributed)
 
-    collate = Collate(
-        pad_token_id=pad_token_id,
-        end_of_speaker_1_token_id=end_of_speaker_1_token_id,
-        end_of_speaker_2_token_id=end_of_speaker_2_token_id)
+    collate = Collate(pad_token_id=pad_token_id,
+                      end_of_speaker_1_token_id=end_of_speaker_1_token_id,
+                      end_of_speaker_2_token_id=end_of_speaker_2_token_id)
 
-    dataloader = DataLoader(
-        dataset=dataset, batch_size=batch_size, sampler=sampler, num_workers=num_workers, collate_fn=collate)
+    dataloader = DataLoader(dataset=dataset,
+                            batch_size=batch_size,
+                            sampler=sampler,
+                            num_workers=num_workers,
+                            collate_fn=collate)
 
     return dataloader
 
@@ -127,7 +129,7 @@ class Collate:
         self._device = device
 
     def __call__(self, items):
-        samples, is_distracted = zip(*items)
+        samples, labels = zip(*items)
         max_len = max(len(sample) for sample in samples)
         token_ids = np.empty((len(samples), max_len))
         token_type_ids = np.zeros_like(token_ids)
@@ -135,22 +137,24 @@ class Collate:
         token_ids.fill(self._pad_token_id)
         lm_labels.fill(self._LM_LOSS_IGNORE_LABEL)
 
-        for i, sample in enumerate(samples):
+        for i, (is_sample_distracted, sample) in enumerate(zip(labels, samples)):
             sample = np.array(sample)
             token_ids[i, :len(sample)] = sample
-            lm_labels[i, :len(sample)] = self._construct_lm_labels(sample)
+            lm_labels[i, :len(sample)] = self._construct_lm_labels(sample, is_sample_distracted)
             token_type_ids[i, :len(sample)] = self._construct_token_type_ids(sample)
 
         token_ids = torch.tensor(token_ids, dtype=torch.long)
         lm_labels = torch.tensor(lm_labels, dtype=torch.long)
         token_type_ids = torch.tensor(token_type_ids, dtype=torch.long)
+        labels = torch.tensor(labels, dtype=torch.long)
 
         if self._device is not None:
             token_ids = token_ids.to(self._device)
+            labels = labels.to(self._device)
             token_type_ids = token_type_ids.to(self._device)
             lm_labels = lm_labels.to(self._device) if lm_labels is not None else lm_labels
 
-        return token_ids, token_type_ids, lm_labels
+        return token_ids, labels, token_type_ids, lm_labels
 
     def _construct_token_type_ids(self, token_ids):
         token_type_ids = np.zeros_like(token_ids, dtype=token_ids.dtype)
@@ -172,38 +176,40 @@ class Collate:
 
         return token_type_ids
 
-    def _construct_lm_labels(self, token_ids):
-        mask = (token_ids == self._end_of_speaker_1_token_id) | (token_ids == self._end_of_speaker_2_token_id)
-        # Cast to int32 from uint16 to add lm loss ignore label (which equals -100):
+    def _construct_lm_labels(self, token_ids, is_sample_distracted):
         lm_labels = token_ids.copy().astype(np.int32)
-        first_end_of_speaker_index = mask.argmax()
-        lm_labels[:first_end_of_speaker_index + 1] = self._LM_LOSS_IGNORE_LABEL
+        if is_sample_distracted:
+            lm_labels[:] = self._LM_LOSS_IGNORE_LABEL
+        else:
+            last_speaker_2_message_beginning_pos = -(token_ids == self._end_of_speaker_1_token_id)[::-1].argmax()
+            lm_labels[:last_speaker_2_message_beginning_pos] = self._LM_LOSS_IGNORE_LABEL
 
         return lm_labels
 
 
 if __name__ == '__main__':
     from dialog_model.dataset.serializer import load_tokenizer
-    dataset_dir = '/ssd_1/data/dialog_model/datasets/flibusta/train'
+    dataset_dir = '/ssd_1/data/dialog_model/datasets/flibusta/valid'
     t = load_tokenizer(dataset_dir)
-    # d = get_dataloader(
-    #     dataset_dir=dataset_dir,
-    #     distractor_p=0.5,
-    #     batch_size=8,
-    #     num_workers=4,
-    #     sort_chunk_size=600,
-    #     samples_offset=0,
-    #     data_shuffle_seed=2,
-    #     is_distributed=False,
-    #     pad_token_id=t.pad_token_id,
-    #     end_of_speaker_1_token_id=t.end_of_speaker_1_token_id,
-    #     end_of_speaker_2_token_id=t.end_of_speaker_2_token_id)
+    d = get_dataloader(dataset_dir=dataset_dir,
+                       distractor_p=0.5,
+                       batch_size=8,
+                       num_workers=4,
+                       sort_chunk_size=600,
+                       samples_offset=0,
+                       data_shuffle_seed=2,
+                       is_distributed=False,
+                       pad_token_id=t.pad_token_id,
+                       end_of_speaker_1_token_id=t.end_of_speaker_1_token_id,
+                       end_of_speaker_2_token_id=t.end_of_speaker_2_token_id)
 
-    # for batch in d:
-    #     print(batch)
-    dataset = SerializedDataset(
-        dataset_dir=dataset_dir, distractor_p=0.5, end_of_speaker_1_token_id=t.end_of_speaker_1_token_id)
-
-    for token_ids, is_distracted in dataset:
-        if is_distracted:
-            print(t.decode(token_ids))
+    for batch in d:
+        print(batch)
+#     dataset = SerializedDataset(dataset_dir=dataset_dir,
+#                                 distractor_p=0.5,
+#                                 end_of_speaker_1_token_id=t.end_of_speaker_1_token_id)
+#
+#     for token_ids, is_distracted in dataset:
+#         if is_distracted:
+#             print(t.decode(token_ids))
+#
