@@ -6,6 +6,6 @@ uvicorn==0.13.0
 gunicorn==20.0.4
 uvloop==0.14.0
 httptools==0.1.1
-aiohttp==3.7.3
+aiohttp==3.7.4
 dialogs_data_parsers@ git+ssh://git@github.com/alexeykarnachev/dialogs_data_parsers.git
 py_utils@ git+ssh://git@github.com/alexeykarnachev/py_utils.git
