@@ -135,7 +135,7 @@ class Collate:
         except ValueError:
             samples = items
             labels = [0] * len(samples)
-            
+
         max_len = max(len(sample) for sample in samples)
         input_ids = np.empty((len(samples), max_len))
         token_type_ids = np.zeros_like(input_ids)

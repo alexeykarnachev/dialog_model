@@ -46,8 +46,10 @@ class DialogsTokenizer:
 
     def iterate_on_encoded_subdialogs(self, dialog, skip_incomplete, encode_for_inference=False):
         encoded_dialog_utterances = list(map(self.encode_utterance, dialog))
+        skip_incomplete = False is encode_for_inference
+        min_subdialog_n_messages = len(dialog) if encode_for_inference else 2
 
-        for subdialog_n_messages in range(2, len(encoded_dialog_utterances) + 1):
+        for subdialog_n_messages in range(min_subdialog_n_messages, len(encoded_dialog_utterances) + 1):
             encoded_subdialog_utterances = encoded_dialog_utterances[:subdialog_n_messages]
             if skip_incomplete:
                 length_of_two_last_utterances = len(encoded_subdialog_utterances[-1]) + len(

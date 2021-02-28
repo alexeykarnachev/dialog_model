@@ -11,8 +11,9 @@ _LOGGER = logging.getLogger(__name__)
 
 def prepare(experiment_dir, checkpoint_name, device, logs_dir) -> FastAPI:
     prepare_logging(logs_dir)
-    generator = load_response_candidates_generator_from_experiment_dir(
-        experiment_dir=experiment_dir, checkpoint_name=checkpoint_name, device=device)
+    generator = load_response_candidates_generator_from_experiment_dir(experiment_dir=experiment_dir,
+                                                                       checkpoint_name=checkpoint_name,
+                                                                       device=device)
 
     app = FastAPI()
     endpoints_register = EndpointsRegister(app=app, generator=generator)

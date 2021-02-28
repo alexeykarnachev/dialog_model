@@ -1,5 +1,6 @@
 from typing import Sequence
 
+import numpy as np
 import torch
 import torch.nn.functional
 
@@ -58,6 +59,7 @@ class ResponseCandidatesGenerator:
         past_input_ids = input_ids.detach().clone()
         past_input_ids = past_input_ids[:, not_eos_positions]
         past_key_values = None
+        candidate_id_to_score = {}
         while not progress.finished:
             model_input = ModelInput(input_ids=input_ids,
                                      labels=None,
@@ -75,7 +77,14 @@ class ResponseCandidatesGenerator:
                                       top_k=top_k,
                                       top_p=top_p)
             next_input_ids = _sample_next_input_ids(next_token_logits)
-            progress.update(next_input_ids)
+            finished_just_now_mask = progress.update(next_input_ids)
+            finished_just_now_inds = torch.where(finished_just_now_mask)[0]
+
+            if len(finished_just_now_inds):
+                scores = model_output.cls_logits[finished_just_now_inds].softmax(-1)[:, 0]
+                for candidate_id, score in zip(finished_just_now_inds, scores):
+                    candidate_id_to_score[candidate_id.item()] = score.item()
+
             generated_input_ids[:, progress.current_length - 1] = next_input_ids
             input_ids = next_input_ids.unsqueeze(1)
             token_type_ids = new_token_type_ids
@@ -84,8 +93,11 @@ class ResponseCandidatesGenerator:
         candidates = _decode_candidates(tokenizer=self._tokenizer,
                                         generated_tokens=generated_input_ids,
                                         generated_sample_lengths=progress.generated_sample_lengths)
-
-        return candidates
+        scores = [candidate_id_to_score.get(i, -1) for i in range(len(candidates))]
+        sorted_candidate_inds = np.argsort(scores)[::-1]
+        candidates = [candidates[i] for i in sorted_candidate_inds]
+        scores = [scores[i] for i in sorted_candidate_inds]
+        return candidates, scores
 
 
 def _modify_next_token_logits(next_token_logits, ignored_input_ids, input_ids_to_penalize, repetition_penalty,

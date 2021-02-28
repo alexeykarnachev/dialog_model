@@ -22,7 +22,6 @@ def _return_value_if_not_initialized(value):
 
 class GenerationProgressTracker:
     """Tracks generation progress."""
-
     @property
     @_return_value_if_not_initialized(value=False)
     def max_length_reached(self):
@@ -79,9 +78,15 @@ class GenerationProgressTracker:
             not_eos_tokens_mask &= next_input_ids.ne(eos_token_id).bool()
 
         self._gen_lengths[self._unfinished_mask] += 1
-
         self._unfinished_mask *= not_eos_tokens_mask
+
+        finished_mask = ~self._unfinished_mask
+        finished_just_now_mask = ~self._already_finished_mask & finished_mask
+
+        self._already_finished_mask |= finished_just_now_mask
         self.current_length += 1
+
+        return finished_just_now_mask
 
     def _assert_update_is_possible(self):
         if self.finished:
@@ -93,3 +98,4 @@ class GenerationProgressTracker:
             self._n_samples = len(next_tokens)
             self._unfinished_mask = torch.ones(self._n_samples, dtype=torch.bool, device=device)
             self._gen_lengths = torch.zeros(self._n_samples, dtype=torch.long, device=device)
+            self._already_finished_mask = torch.zeros(self._n_samples, dtype=torch.bool, device=device)

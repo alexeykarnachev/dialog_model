@@ -33,7 +33,7 @@ class DialogModel(nn.Module):
                                  labels=model_input.lm_labels,
                                  return_dict=True,
                                  output_hidden_states=True,
-                                 use_cache=model_input.past_key_values is not None,
+                                 use_cache=True,
                                  past_key_values=model_input.past_key_values)
         if model_input.lm_labels is not None:
             lm_loss = gpt2_output.loss

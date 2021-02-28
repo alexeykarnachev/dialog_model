@@ -10,6 +10,7 @@ from dialog_model.language_generator.generator import ResponseCandidatesGenerato
 
 class ResponseCandidates(BaseModel):
     response_candidates: List[str] = Field()
+    response_candidate_scores: List[float] = Field()
 
 
 class ResponseCandidatesParams(BaseModel):
@@ -30,16 +31,15 @@ class EndpointsRegister:
     def register_response_candidates_view(self):
         @self._app.post("/response_candidates/", response_model=ResponseCandidates)
         def get_response_candidates(params: ResponseCandidatesParams) -> ResponseCandidates:
-            candidates = self._generator(
-                context=params.context,
-                n_candidates=params.n_candidates,
-                max_n_context_tokens=params.max_n_context_tokens,
-                repetition_penalty=params.repetition_penalty,
-                temperature=params.temperature,
-                top_k=params.top_k,
-                top_p=params.top_p)
+            candidates, scores = self._generator(context=params.context,
+                                                 n_candidates=params.n_candidates,
+                                                 max_n_context_tokens=params.max_n_context_tokens,
+                                                 repetition_penalty=params.repetition_penalty,
+                                                 temperature=params.temperature,
+                                                 top_k=params.top_k,
+                                                 top_p=params.top_p)
 
-            return ResponseCandidates(response_candidates=candidates)
+            return ResponseCandidates(response_candidates=candidates, response_candidate_scores=scores)
 
         return get_response_candidates
 
