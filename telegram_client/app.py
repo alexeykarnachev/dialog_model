@@ -18,7 +18,7 @@ class App:
     _WELCOME_MESSAGE = "*Начало нового диалога*"
     _DIALOG_MODEL_PAYLOAD = {
         "n_candidates": 10,
-        "max_n_context_tokens": 100,
+        "max_n_context_tokens": 70,
         "temperature": 0.7,
         "top_k": 50,
         "top_p": 1,
@@ -85,7 +85,7 @@ class App:
 
     @staticmethod
     def _select_response_candidate(response_candidates):
-        return random.choice(response_candidates)
+        return response_candidates[0]
 
     def start(self):
         self.register_start_message_handler()
@@ -133,10 +133,9 @@ def _parse_args():
 def main():
     args = _parse_args()
     prepare_logging(logs_dir=args.logs_dir)
-    app = App(
-        telegram_api_token=args.telegram_api_token,
-        response_candidates_url=args.response_candidates_url,
-        max_n_context_messages=args.max_n_context_messages)
+    app = App(telegram_api_token=args.telegram_api_token,
+              response_candidates_url=args.response_candidates_url,
+              max_n_context_messages=args.max_n_context_messages)
     app.start()
 
 

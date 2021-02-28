@@ -87,4 +87,4 @@ class DialogsTokenizer:
         return encoded_utterance
 
     def decode(self, input_ids):
-        return self._tokenizer.decode(input_ids)
+        return self._tokenizer.decode(input_ids, skip_special_tokens=True)

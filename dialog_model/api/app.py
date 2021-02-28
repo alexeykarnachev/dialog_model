@@ -22,3 +22,11 @@ def prepare(experiment_dir, checkpoint_name, device, logs_dir) -> FastAPI:
     _LOGGER.info('Application successfully prepared.')
 
     return app
+
+
+#
+# if __name__ == '__main__':
+#     app = prepare('/ssd_1/data/dialog_model/experiments/8d54802c/', 'last.ckpt', 'cpu', '/logs/')
+#     import uvicorn
+#     uvicorn.run(app, host="0.0.0.0", port=8228)
+#

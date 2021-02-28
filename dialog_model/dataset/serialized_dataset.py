@@ -1,4 +1,5 @@
 from collections import Counter
+from collections.abc import Iterable
 import random
 
 import numpy as np
@@ -130,9 +131,10 @@ class Collate:
         self._device = device
 
     def __call__(self, items):
-        try:
+        first_item = items[0]
+        if isinstance(first_item[0], Iterable):
             samples, labels = zip(*items)
-        except ValueError:
+        else:
             samples = items
             labels = [0] * len(samples)
 
