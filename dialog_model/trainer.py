@@ -16,7 +16,7 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 from dialog_model.dataset.serialized_dataset import get_dataloader
 from dialog_model.dataset.serializer import load_tokenizer, read_meta
 from dialog_model.model import DialogModel
-from dialog_model.model_io import CHECKPOINTS_DIR_NAME, get_pretrained_gpt2_with_lm_head
+from dialog_model.model import CHECKPOINTS_DIR_NAME, get_pretrained_gpt2_with_lm_head
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
@@ -53,6 +53,7 @@ class Trainer:
         self._global_step = None
         self._samples_seen = None
         self._writer = None
+        self._model_params = None
 
         checkpoint_dir = self._experiment_dir / CHECKPOINTS_DIR_NAME
         checkpoint_dir.mkdir(exist_ok=True)
@@ -74,7 +75,8 @@ class Trainer:
             'global_step': self._global_step,
             'samples_seen': self._samples_seen,
             'world_size': self._world_size,
-            'gpt2_config_dict': self._model.module.gpt2.config.to_dict()
+            'gpt2_config_dict': self._model.module.gpt2.config.to_dict(),
+            'model_params': self._model_params
         }
 
         torch.save(checkpoint, self._checkpoint_file_path)
@@ -199,13 +201,18 @@ class Trainer:
         dist.init_process_group("nccl", rank=rank, world_size=self._world_size)
 
     def _get_model(self, rank):
-        model = DialogModel(gpt2_name_or_path=self._gpt2_name_or_path,
-                            vocab_size=self._tokenizer.vocab_size,
-                            n_classes=2,
-                            end_of_speaker_2_token_id=self._tokenizer.end_of_speaker_2_token_id,
-                            cls_loss_weight=0.25)
+        model_params = {
+            'gpt2_name_or_path': self._gpt2_name_or_path,
+            'vocab_size': self._tokenizer.vocab_size,
+            'n_classes': 2,
+            'end_of_speaker_2_token_id': self._tokenizer.end_of_speaker_2_token_id,
+            'cls_loss_weight': 0.25
+        }
+
+        model = DialogModel(**model_params)
         model = model.to(rank)
         model = DistributedDataParallel(model, device_ids=[rank])
+        self._model_params = model_params
 
         return model
 

@@ -15,7 +15,7 @@ class ResponseCandidates(BaseModel):
 class ResponseCandidatesParams(BaseModel):
     context: List[str] = Field()
     n_candidates: int = Field(default=20, ge=1, le=64)
-    max_n_context_tokens: int = Field(default=100, ge=1, le=128)
+    max_n_context_tokens: int = Field(default=70, ge=1, le=90)
     temperature: float = Field(default=0.7, gt=0, le=100)
     top_k: int = Field(default=50, ge=0)
     top_p: float = Field(default=1.0, gt=0.0, le=1.0)

@@ -130,7 +130,12 @@ class Collate:
         self._device = device
 
     def __call__(self, items):
-        samples, labels = zip(*items)
+        try:
+            samples, labels = zip(*items)
+        except ValueError:
+            samples = items
+            labels = [0] * len(samples)
+            
         max_len = max(len(sample) for sample in samples)
         input_ids = np.empty((len(samples), max_len))
         token_type_ids = np.zeros_like(input_ids)
@@ -155,7 +160,11 @@ class Collate:
             token_type_ids = token_type_ids.to(self._device)
             lm_labels = lm_labels.to(self._device) if lm_labels is not None else lm_labels
 
-        model_input = ModelInput(input_ids=input_ids, labels=labels, token_type_ids=token_type_ids, lm_labels=lm_labels)
+        model_input = ModelInput(input_ids=input_ids,
+                                 labels=labels,
+                                 token_type_ids=token_type_ids,
+                                 lm_labels=lm_labels,
+                                 past_key_values=None)
         return model_input
 
     def _construct_token_type_ids(self, input_ids):

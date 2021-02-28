@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from dialog_model.api.endpoints import EndpointsRegister
 from dialog_model.log_config import prepare_logging
-from dialog_model.model_io import load_response_candidates_generator_from_experiment_dir
+from dialog_model.model import load_response_candidates_generator_from_experiment_dir
 
 _LOGGER = logging.getLogger(__name__)
 
