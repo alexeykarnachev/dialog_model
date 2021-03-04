@@ -15,8 +15,7 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 
 from dialog_model.dataset.serialized_dataset import get_dataloader
 from dialog_model.dataset.serializer import load_tokenizer, read_meta
-from dialog_model.model import DialogModel
-from dialog_model.model import CHECKPOINTS_DIR_NAME, get_pretrained_gpt2_with_lm_head
+from dialog_model.model import CHECKPOINTS_DIR_NAME, DialogModel, get_pretrained_gpt2_with_lm_head
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 

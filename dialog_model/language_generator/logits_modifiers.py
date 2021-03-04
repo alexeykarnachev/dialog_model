@@ -1,9 +1,7 @@
 import abc
-
 from typing import Optional, Sequence
 
 import torch
-
 from transformers import top_k_top_p_filtering
 
 _MINUS_INF = -float("Inf")
@@ -24,7 +22,6 @@ class NextTokenLogitsModifier(abc.ABC):
 
 class TemperatureModifier(NextTokenLogitsModifier):
     """Classic temperature logits distribution modifier."""
-
     def __init__(self, temperature: float):
         """
         Args:
@@ -48,7 +45,6 @@ class TemperatureModifier(NextTokenLogitsModifier):
 
 class TopKNucleusModifier(NextTokenLogitsModifier):
     """Filters a distribution of logits using top-k and/or top-p filtering"""
-
     def __init__(self, top_k: int, top_p: float):
         """
         Args:
@@ -85,7 +81,6 @@ class TopKNucleusModifier(NextTokenLogitsModifier):
 
 class IgnoredTokensModifier(NextTokenLogitsModifier):
     """Assigns zero probabilities logits to the ignored tokens."""
-
     def __init__(self, ignored_input_ids: Optional[Sequence[int]]):
         """
         Args:
@@ -101,7 +96,6 @@ class IgnoredTokensModifier(NextTokenLogitsModifier):
 
 class RepetitiveTokensModifier(NextTokenLogitsModifier):
     """Decreases probability (and logits) for tokens which have already been."""
-
     def __init__(self, penalty: float, input_ids_to_penalize: torch.tensor):
         """
         Args:

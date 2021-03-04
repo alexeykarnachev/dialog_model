@@ -18,12 +18,11 @@ def _parse_args():
     parser.add_argument('--max_n_tokens', type=int, required=True, help='Max number of tokens in total.')
     parser.add_argument('--max_n_utterances', type=int, required=True, help='Max number of dialog utterances.')
     parser.add_argument('--out_dir', type=str, required=True, help='Path to the out dir with train and valid sub-dirs.')
-    parser.add_argument(
-        '--n_workers',
-        type=int,
-        required=False,
-        default=multiprocessing.cpu_count(),
-        help='Number of multiprocessing workers.')
+    parser.add_argument('--n_workers',
+                        type=int,
+                        required=False,
+                        default=multiprocessing.cpu_count(),
+                        help='Number of multiprocessing workers.')
 
     args = parser.parse_args()
 
@@ -38,12 +37,11 @@ def main():
     flibusta_valid_dialogs = islice(flibusta_dialogs, args.n_valid_dialogs)
     flibusta_train_dialogs = islice(flibusta_dialogs, args.n_valid_dialogs, None)
 
-    _get_dialogs_dataset_serializer = partial(
-        DialogsDatasetSerializer,
-        tokenizer_name_or_path=args.tokenizer_name_or_path,
-        n_workers=args.n_workers,
-        max_n_tokens=args.max_n_tokens,
-        max_n_utterances=args.max_n_utterances)
+    _get_dialogs_dataset_serializer = partial(DialogsDatasetSerializer,
+                                              tokenizer_name_or_path=args.tokenizer_name_or_path,
+                                              n_workers=args.n_workers,
+                                              max_n_tokens=args.max_n_tokens,
+                                              max_n_utterances=args.max_n_utterances)
 
     _get_dialogs_dataset_serializer(dialogs=flibusta_valid_dialogs, out_serialized_dataset_dir=out_dir / 'valid').run()
     _get_dialogs_dataset_serializer(dialogs=flibusta_train_dialogs, out_serialized_dataset_dir=out_dir / 'train').run()

@@ -44,10 +44,11 @@ class DialogsDatasetSerializer:
         self._n_samples = sync_manager.Value('i', 0)
         self._dtype_code = sync_manager.Value('i', -1)
 
-        self._log_progress_each_n_dialogs = self._LOG_PROGRESS_EACH_N_DIALOGS - (
-            self._LOG_PROGRESS_EACH_N_DIALOGS % n_workers)
-        self._tokenizer = DialogsTokenizer(
-            self._tokenizer_name_or_path, max_n_tokens=self._max_n_tokens, max_n_utterances=self._max_n_utterances)
+        self._log_progress_each_n_dialogs = self._LOG_PROGRESS_EACH_N_DIALOGS - (self._LOG_PROGRESS_EACH_N_DIALOGS %
+                                                                                 n_workers)
+        self._tokenizer = DialogsTokenizer(self._tokenizer_name_or_path,
+                                           max_n_tokens=self._max_n_tokens,
+                                           max_n_utterances=self._max_n_utterances)
 
     def run(self):
         self._write_initial_offset()

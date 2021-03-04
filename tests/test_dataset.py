@@ -15,9 +15,8 @@ def _iterate_on_input_ids(n_samples, min_size, max_size):
         yield _generate_input_ids(size)
 
 
-@pytest.mark.parametrize('n_samples,min_size,max_size', [
-    (1, 1, 1), (1, 1, 10), (10, 10, 10), (1000, 1, 1), (1000, 100, 100)
-])
+@pytest.mark.parametrize('n_samples,min_size,max_size', [(1, 1, 1), (1, 1, 10), (10, 10, 10), (1000, 1, 1),
+                                                         (1000, 100, 100)])
 def test_build_dataset(n_samples, min_size, max_size, tmpdir):
     input_ids_expected = list(_iterate_on_input_ids(n_samples=n_samples, min_size=min_size, max_size=max_size))
     offsets, lengths, dtype = _write_data(tmpdir, input_ids_iter=input_ids_expected)

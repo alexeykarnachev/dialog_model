@@ -1,14 +1,12 @@
 import argparse
+from collections import defaultdict
 import json
 import logging
 import random
 
-from collections import defaultdict
-
-import aiohttp
-
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
+import aiohttp
 from log_config import prepare_logging
 
 _logger = logging.getLogger(__name__)

@@ -46,24 +46,45 @@ class DialogsTokenizer:
 
     def iterate_on_encoded_subdialogs(self, dialog, skip_incomplete, encode_for_inference=False):
         encoded_dialog_utterances = list(map(self.encode_utterance, dialog))
-        skip_incomplete = False is encode_for_inference
         min_subdialog_n_messages = len(dialog) if encode_for_inference else 2
+
+        # We never skip incomplete samples (such the sampler, where only one large incomplete utterance is presented)
+        # on the inference step, because we need at least something to inference (at least long sequence of boolshit)
+        if encode_for_inference:
+            skip_incomplete = False
 
         for subdialog_n_messages in range(min_subdialog_n_messages, len(encoded_dialog_utterances) + 1):
             encoded_subdialog_utterances = encoded_dialog_utterances[:subdialog_n_messages]
-            if skip_incomplete:
-                length_of_two_last_utterances = len(encoded_subdialog_utterances[-1]) + len(
-                    encoded_subdialog_utterances[-2])
-                length_of_two_last_utterances += 2  # Including 2 end-of-speaker tokens
-                if length_of_two_last_utterances > self._max_n_tokens:
+
+            # total length = length on all N utterances + N end-of-speaker tokens:
+            total_length = sum(map(len, encoded_subdialog_utterances)) + len(encoded_subdialog_utterances)
+
+            # If total length is larger than maximum allowed, drop utterances from left untill appropriate
+            # total length will be reached:
+            drop_n_first_utterances = 0
+            while total_length > self._max_n_tokens:
+                total_length -= len(encoded_subdialog_utterances[drop_n_first_utterances])
+                drop_n_first_utterances += 1
+
+            if drop_n_first_utterances == len(encoded_subdialog_utterances):
+                if skip_incomplete:
                     continue
+                else:
+                    encoded_dialog_utterances = encoded_subdialog_utterances[-1:]
+            else:
+                encoded_dialog_utterances = encoded_subdialog_utterances[drop_n_first_utterances:]
 
             encoded_subdialog_utterances = encoded_subdialog_utterances[-self._max_n_utterances:]
+
+            # For training we need at least two utterances:
+            if not encode_for_inference and len(encoded_subdialog_utterances) == 1:
+                continue
+
             if not encode_for_inference:
                 end_of_speaker_input_ids = (self.end_of_speaker_1_token_id, self.end_of_speaker_2_token_id)
             else:
                 end_of_speaker_input_ids = (self.end_of_speaker_2_token_id, self.end_of_speaker_1_token_id)
-            
+
             if len(encoded_subdialog_utterances) % 2 == 0:
                 end_of_speaker_input_ids_cycle = cycle(end_of_speaker_input_ids)
             else:
@@ -83,6 +104,7 @@ class DialogsTokenizer:
             yield encoded_subdialog
 
     def encode_utterance(self, utterance):
+        utterance = utterance.capitalize()
         encoded_utterance = self._tokenizer.encode(utterance, add_special_tokens=False)
         return encoded_utterance
 

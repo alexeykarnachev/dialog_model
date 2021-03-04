@@ -1,6 +1,6 @@
 import pathlib
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 _THIS_DIR = pathlib.Path(__file__).parent
 
@@ -10,10 +10,8 @@ def _get_requirements():
         return fp.read()
 
 
-setup(
-    name='dialog_model',
-    version='0.0.1',
-    install_requires=_get_requirements(),
-    package_dir={'dialog_model': 'dialog_model'},
-    packages=find_packages(exclude=['tests', 'tests.*'])
-)
+setup(name='dialog_model',
+      version='0.0.1',
+      install_requires=_get_requirements(),
+      package_dir={'dialog_model': 'dialog_model'},
+      packages=find_packages(exclude=['tests', 'tests.*']))
