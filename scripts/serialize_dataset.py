@@ -1,6 +1,7 @@
 import argparse
 from functools import partial
 from itertools import chain, islice
+import logging
 import multiprocessing
 from pathlib import Path
 
@@ -9,7 +10,10 @@ from dialogs_data_parsers.pikabu.dialogs_iterator import PikabuDialogsIterator
 
 from dialog_model.dataset.serializer import DialogsDatasetSerializer
 
-_LOGGING_PERIOD = 100000
+_logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s [%(levelname)s] %(message)s",
+                    handlers=[logging.StreamHandler()])
 
 
 def _parse_args():
@@ -39,11 +43,11 @@ def main():
 
     n_valid_dialogs_per_dataset = args.n_valid_dialogs // 2
 
-    pikabu_dialogs = PikabuDialogsIterator(args.pikabu_file_path, _LOGGING_PERIOD)
+    pikabu_dialogs = PikabuDialogsIterator(args.pikabu_file_path, 10000)
     pikabu_valid_dialogs = islice(pikabu_dialogs, n_valid_dialogs_per_dataset)
     pikabu_train_dialogs = islice(pikabu_dialogs, n_valid_dialogs_per_dataset, None)
 
-    flibusta_dialogs = FlibustaDialogsIterator(args.flibusta_file_path, _LOGGING_PERIOD)
+    flibusta_dialogs = FlibustaDialogsIterator(args.flibusta_file_path, 50000)
     flibusta_valid_dialogs = islice(flibusta_dialogs, n_valid_dialogs_per_dataset)
     flibusta_train_dialogs = islice(flibusta_dialogs, n_valid_dialogs_per_dataset, None)
 
