@@ -2,7 +2,6 @@ import argparse
 from collections import defaultdict
 import json
 import logging
-import random
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
@@ -15,12 +14,12 @@ _logger = logging.getLogger(__name__)
 class App:
     _WELCOME_MESSAGE = "*Начало нового диалога*"
     _DIALOG_MODEL_PAYLOAD = {
-        "n_candidates": 10,
+        "n_candidates": 20,
         "max_n_context_tokens": 70,
-        "temperature": 0.7,
-        "top_k": 50,
+        "temperature": 0.9,
+        "top_k": 100,
         "top_p": 1,
-        "repetition_penalty": 5
+        "repetition_penalty": 3
     }
 
     def __init__(self, telegram_api_token, response_candidates_url, max_n_context_messages):

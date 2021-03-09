@@ -19,7 +19,7 @@ _DTYPE_TO_CODE = {v: k for k, v in _CODE_TO_DTYPE.items()}
 class DialogsDatasetSerializer:
 
     _SERIALIZATION_CHUNK_SIZE = 10000
-    _LOG_PROGRESS_EACH_N_DIALOGS = 1000
+    _LOG_PROGRESS_EACH_N_DIALOGS = 1000000
 
     def __init__(self, dialogs, out_serialized_dataset_dir, tokenizer_name_or_path, n_workers, max_n_tokens,
                  max_n_utterances):
@@ -78,7 +78,7 @@ class DialogsDatasetSerializer:
             if worker_id == 0 and total_dialogs_done % self._log_progress_each_n_dialogs == 0:
                 print(f'Dialogs done: {total_dialogs_done}')
 
-            yield from self._tokenizer.iterate_on_encoded_subdialogs(dialog, skip_incomplete=True)
+            yield from self._tokenizer.iterate_on_encoded_subdialogs(dialog)
 
     def _iterate_on_worker_dialogs(self, worker_id):
         if worker_id >= self._n_workers:

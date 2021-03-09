@@ -32,7 +32,6 @@ class ResponseCandidatesGenerator:
         self._model.eval()
         encoded_context = list(
             self._tokenizer.iterate_on_encoded_subdialogs(dialog=context,
-                                                          skip_incomplete=False,
                                                           encode_for_inference=True))[-1]
         encoded_context = encoded_context[-max_n_context_tokens:]
         max_number_of_generated_tokens = self._tokenizer.max_n_tokens - len(encoded_context)
