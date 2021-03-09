@@ -30,9 +30,7 @@ class ResponseCandidatesGenerator:
                              'otherwise there are no tokens left for response.')
 
         self._model.eval()
-        encoded_context = list(
-            self._tokenizer.iterate_on_encoded_subdialogs(dialog=context,
-                                                          encode_for_inference=True))[-1]
+        encoded_context, *_ = self._tokenizer.encode_dialog(dialog=context, encode_for_inference=True)
         encoded_context = encoded_context[-max_n_context_tokens:]
         max_number_of_generated_tokens = self._tokenizer.max_n_tokens - len(encoded_context)
         encoded = [list(encoded_context) for _ in range(n_candidates)]

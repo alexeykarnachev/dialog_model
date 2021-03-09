@@ -19,7 +19,6 @@ _DTYPE_TO_CODE = {v: k for k, v in _CODE_TO_DTYPE.items()}
 class DialogsDatasetSerializer:
 
     _SERIALIZATION_CHUNK_SIZE = 10000
-    _LOG_PROGRESS_EACH_N_DIALOGS = 1000000
 
     def __init__(self, dialogs, out_serialized_dataset_dir, tokenizer_name_or_path, n_workers, max_n_tokens,
                  max_n_utterances):
@@ -44,8 +43,6 @@ class DialogsDatasetSerializer:
         self._n_samples = sync_manager.Value('i', 0)
         self._dtype_code = sync_manager.Value('i', -1)
 
-        self._log_progress_each_n_dialogs = self._LOG_PROGRESS_EACH_N_DIALOGS - (self._LOG_PROGRESS_EACH_N_DIALOGS %
-                                                                                 n_workers)
         self._tokenizer = DialogsTokenizer(self._tokenizer_name_or_path,
                                            max_n_tokens=self._max_n_tokens,
                                            max_n_utterances=self._max_n_utterances)
@@ -65,20 +62,16 @@ class DialogsDatasetSerializer:
         self._write_meta()
 
     def _run_worker_job(self, worker_id):
-        worker_encoded_subdialogs = self._iterate_on_worker_encoded_subdialogs(worker_id)
-        for worker_encoded_subdialogs_chunk in chunked(worker_encoded_subdialogs, n=self._SERIALIZATION_CHUNK_SIZE):
-            self._write_encoded_dialogs(worker_encoded_subdialogs_chunk)
+        worker_encoded_dialogs = self._iterate_on_worker_encoded_dialogs(worker_id)
+        for worker_encoded_dialogs_chunk in chunked(worker_encoded_dialogs, n=self._SERIALIZATION_CHUNK_SIZE):
+            self._write_encoded_dialogs(worker_encoded_dialogs_chunk)
 
-    def _iterate_on_worker_encoded_subdialogs(self, worker_id):
+    def _iterate_on_worker_encoded_dialogs(self, worker_id):
         worker_dialogs = self._iterate_on_worker_dialogs(worker_id)
-
         for n_worker_dialogs_done, dialog in enumerate(worker_dialogs, start=1):
-            total_dialogs_done = n_worker_dialogs_done * self._n_workers
-
-            if worker_id == 0 and total_dialogs_done % self._log_progress_each_n_dialogs == 0:
-                print(f'Dialogs done: {total_dialogs_done}')
-
-            yield from self._tokenizer.iterate_on_encoded_subdialogs(dialog)
+            encoded_dialog, n_utterances, is_incomplete = self._tokenizer.encode_dialog(dialog)
+            if n_utterances > 1 and not is_incomplete:
+                yield encoded_dialog
 
     def _iterate_on_worker_dialogs(self, worker_id):
         if worker_id >= self._n_workers:
