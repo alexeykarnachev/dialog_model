@@ -88,7 +88,7 @@ class DialogsTokenizer:
         encoded_dialog = encoded_dialog[-self._max_n_tokens:]
         encoded_dialog = np.array(encoded_dialog, dtype=self._dtype)
 
-        yield encoded_dialog, n_utterances, is_incomplete
+        return encoded_dialog, n_utterances, is_incomplete
 
     def encode_utterance(self, utterance):
         utterance = utterance.capitalize()
