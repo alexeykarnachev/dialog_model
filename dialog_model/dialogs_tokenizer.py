@@ -46,7 +46,7 @@ class DialogsTokenizer:
 
     def encode_dialog(self, dialog, encode_for_inference=False):
         encoded_utterances = [self.encode_utterance(utterance) for utterance in dialog]
-        encoded_utterances = encoded_utterances[-self._max_n_utterances]
+        encoded_utterances = encoded_utterances[-self._max_n_utterances:]
 
         if encode_for_inference:
             end_of_speaker_input_ids = (self.end_of_speaker_2_token_id, self.end_of_speaker_1_token_id)
