@@ -14,10 +14,10 @@ _logger = logging.getLogger(__name__)
 class App:
     _WELCOME_MESSAGE = "*Начало нового диалога*"
     _DIALOG_MODEL_PAYLOAD = {
-        "n_candidates": 20,
+        "n_candidates": 128,
         "max_n_context_tokens": 70,
-        "temperature": 0.9,
-        "top_k": 100,
+        "temperature": 0.7,
+        "top_k": 50,
         "top_p": 1,
         "repetition_penalty": 3
     }
