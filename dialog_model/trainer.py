@@ -26,7 +26,7 @@ class Trainer:
 
     def __init__(self, experiment_dir, train_dataset_dir, valid_dataset_dir, gpt2_name_or_path,
                  init_weights_from_checkpoint, worker_batch_size, data_shuffle_seed, freeze_n_layers, learning_rate,
-                 n_epochs, validate_each_n_steps, warmup_ratio):
+                 n_epochs, validate_each_n_steps, warmup_ratio, n_accum_steps):
         self._experiment_dir = Path(experiment_dir)
         self._train_dataset_dir = Path(train_dataset_dir)
         self._valid_dataset_dir = Path(valid_dataset_dir)
@@ -39,6 +39,7 @@ class Trainer:
         self._n_epochs = n_epochs
         self._validate_each_n_steps = validate_each_n_steps
         self._warmup_ratio = warmup_ratio
+        self._n_accum_steps = n_accum_steps or 1
 
         self._world_size = torch.cuda.device_count()
         self._tokenizer = load_tokenizer(self._train_dataset_dir)
@@ -172,8 +173,10 @@ class Trainer:
         cls_loss = model_output.cls_loss
 
         self._scaler.scale(loss).backward()
-        self._scaler.step(self._optimizer)
-        self._scaler.update()
+
+        if self._global_step % self._n_accum_steps == 0:
+            self._scaler.step(self._optimizer)
+            self._scaler.update()
 
         dist.all_reduce(loss)
         dist.all_reduce(lm_loss)

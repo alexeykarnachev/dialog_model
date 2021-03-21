@@ -8,7 +8,7 @@ from dialog_model.trainer import Trainer
 from dialog_model.utils import get_file_md5_checksum
 
 _HASH_ARGS = ('gpt2_name_or_path', 'worker_batch_size', 'data_shuffle_seed', 'learning_rate', 'n_epochs',
-              'warmup_ratio')
+              'warmup_ratio', 'n_accum_steps')
 
 
 def _parse_args():
@@ -24,6 +24,7 @@ def _parse_args():
     parser.add_argument('--n_epochs', type=int, required=True)
     parser.add_argument('--validate_each_n_steps', type=int, required=True)
     parser.add_argument('--warmup_ratio', type=float, required=True)
+    parser.add_argument('--n_accum_steps', type=int, required=False, default=1)
 
     args = parser.parse_args()
     return args
@@ -54,7 +55,8 @@ def main():
                       learning_rate=args.learning_rate,
                       n_epochs=args.n_epochs,
                       validate_each_n_steps=args.validate_each_n_steps,
-                      warmup_ratio=args.warmup_ratio)
+                      warmup_ratio=args.warmup_ratio,
+                      n_accum_steps=args.n_accum_steps)
 
     trainer.run()
 
