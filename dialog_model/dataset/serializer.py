@@ -7,10 +7,9 @@ from multiprocessing import Manager, Process
 from pathlib import Path
 import struct
 
+from dialogs_data_parsers.dialogs_tokenizer import DialogsTokenizer
 from more_itertools import chunked
 import numpy as np
-
-from dialog_model.dialogs_tokenizer import DialogsTokenizer
 
 _CODE_TO_DTYPE = {0: np.dtype('uint16'), 1: np.dtype('int32')}
 _DTYPE_TO_CODE = {v: k for k, v in _CODE_TO_DTYPE.items()}
