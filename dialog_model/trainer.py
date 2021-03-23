@@ -163,20 +163,19 @@ class Trainer:
 
     def _train_step(self, model_input):
         self._model.train()
-        self._optimizer.zero_grad()
 
         with autocast():
             model_output = self._model(model_input)
-
-        loss = model_output.loss
-        lm_loss = model_output.lm_loss
-        cls_loss = model_output.cls_loss
+            loss = model_output.loss / self._n_accum_steps
+            lm_loss = model_output.lm_loss / self._n_accum_steps
+            cls_loss = model_output.cls_loss / self._n_accum_steps
 
         self._scaler.scale(loss).backward()
 
         if self._global_step % self._n_accum_steps == 0:
             self._scaler.step(self._optimizer)
             self._scaler.update()
+            self._optimizer.zero_grad()
 
         dist.all_reduce(loss)
         dist.all_reduce(lm_loss)
