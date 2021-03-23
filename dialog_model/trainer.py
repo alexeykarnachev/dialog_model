@@ -181,9 +181,9 @@ class Trainer:
         dist.all_reduce(lm_loss)
         dist.all_reduce(cls_loss)
 
-        loss = loss.item() / self._world_size
-        lm_loss = lm_loss.item() / self._world_size
-        cls_loss = cls_loss.item() / self._world_size
+        loss = (loss.item() / self._world_size) * self._n_accum_steps
+        lm_loss = (lm_loss.item() / self._world_size) * self._n_accum_steps
+        cls_loss = (cls_loss.item() / self._world_size) * self._n_accum_steps
 
         samples_seen = torch.tensor(len(model_input.input_ids), device=self._rank)
         dist.all_reduce(samples_seen)
